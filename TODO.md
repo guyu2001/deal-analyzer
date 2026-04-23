@@ -15,14 +15,14 @@
 ### 1. Scenario Analysis (BIG upgrade)
 Goal: Answer “What would make this a good deal?”
 
-- [ ] Add inputs for scenario tweaks:
+- [x] Add inputs for scenario tweaks:
   - rent increase
   - purchase price adjustment
   - interest rate change
-- [ ] Recalculate metrics dynamically
-- [ ] Show side-by-side comparison:
+- [x] Recalculate metrics dynamically
+- [x] Show side-by-side comparison:
   - Original vs Scenario
-- [ ] Highlight what changed (cash flow, CoC, etc.)
+- [x] Highlight what changed (cash flow, CoC, etc.)
 
 ---
 
@@ -97,5 +97,7 @@ Goal: Answer “What would make this a good deal?”
 
 ### YYYY-MM-DD
 - What I built:
+- Scenario analysis with rent, price, and rate adjustments
+- Original vs Scenario comparison with metric deltas
 - What I learned:
 - Next step:

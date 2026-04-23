@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from models import DealInput, DealMetrics
 
 
@@ -20,6 +22,51 @@ def calculate_monthly_mortgage(
         monthly_rate * (1 + monthly_rate) ** number_of_payments
     ) / (
         (1 + monthly_rate) ** number_of_payments - 1
+    )
+
+
+def calculate_break_even_rent(deal: DealInput) -> float:
+    """Calculate the monthly rent needed for zero monthly cash flow."""
+    down_payment = deal.purchase_price * (deal.down_payment_pct / 100)
+    loan_amount = deal.purchase_price - down_payment
+
+    monthly_mortgage = calculate_monthly_mortgage(
+        loan_amount=loan_amount,
+        annual_interest_rate=deal.interest_rate,
+        loan_term_years=deal.loan_term_years,
+    )
+
+    variable_expense_ratio = (
+        deal.vacancy_pct
+        + deal.property_management_pct
+        + deal.maintenance_pct
+    ) / 100
+
+    if variable_expense_ratio >= 1:
+        return float("inf")
+
+    fixed_monthly_costs = (
+        deal.property_tax_annual / 12
+        + deal.insurance_annual / 12
+        + deal.hoa_monthly
+        + monthly_mortgage
+    )
+
+    return fixed_monthly_costs / (1 - variable_expense_ratio)
+
+
+def build_scenario_deal(
+    deal: DealInput,
+    rent_increase: float = 0.0,
+    purchase_price_adjustment: float = 0.0,
+    interest_rate_change: float = 0.0,
+) -> DealInput:
+    """Return a copy of the deal with scenario adjustments applied."""
+    return replace(
+        deal,
+        monthly_rent=max(0.0, deal.monthly_rent + rent_increase),
+        purchase_price=max(0.0, deal.purchase_price + purchase_price_adjustment),
+        interest_rate=max(0.0, deal.interest_rate + interest_rate_change),
     )
 
 

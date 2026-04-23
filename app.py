@@ -1,8 +1,8 @@
 import streamlit as st
 
-from calculator import calculate_metrics, score_deal
+from calculator import build_scenario_deal, calculate_metrics, score_deal
 from models import DealInput
-from utils import format_currency, format_percent
+from utils import format_currency, format_delta, format_percent
 from ai_analysis import generate_ai_analysis
 
 st.set_page_config(page_title="AI Deal Analyzer", page_icon="🏠", layout="wide")
@@ -52,6 +52,44 @@ deal = DealInput(
 metrics = calculate_metrics(deal)
 grade, verdict, strengths, concerns = score_deal(metrics)
 
+st.header("Scenario Analysis")
+st.caption("Test what changes would make the deal stronger.")
+
+s1, s2, s3 = st.columns(3)
+
+with s1:
+    scenario_rent_increase = st.number_input(
+        "Rent Increase",
+        value=0.0,
+        step=50.0,
+        help="Increase or decrease the monthly rent for the scenario.",
+    )
+
+with s2:
+    scenario_purchase_price_adjustment = st.number_input(
+        "Purchase Price Adjustment",
+        value=0.0,
+        step=1000.0,
+        help="Use a negative number for a lower purchase price.",
+    )
+
+with s3:
+    scenario_interest_rate_change = st.number_input(
+        "Interest Rate Change (%)",
+        value=0.0,
+        step=0.1,
+        help="Use a negative number for a lower interest rate.",
+    )
+
+scenario_deal = build_scenario_deal(
+    deal,
+    rent_increase=scenario_rent_increase,
+    purchase_price_adjustment=scenario_purchase_price_adjustment,
+    interest_rate_change=scenario_interest_rate_change,
+)
+scenario_metrics = calculate_metrics(scenario_deal)
+scenario_grade, scenario_verdict, _, _ = score_deal(scenario_metrics)
+
 st.header("Calculated Metrics")
 
 m1, m2, m3, m4 = st.columns(4)
@@ -75,6 +113,121 @@ with g1:
 
 with g2:
     st.metric("Verdict", verdict)
+
+st.header("Original vs Scenario")
+header1, header2, header3 = st.columns([2, 2, 2])
+header1.markdown("**Metric**")
+header2.markdown("**Original**")
+header3.markdown("**Scenario**")
+
+comparison_rows = [
+    (
+        "Monthly Rent",
+        deal.monthly_rent,
+        scenario_deal.monthly_rent,
+        format_currency,
+        False,
+        True,
+    ),
+    (
+        "Purchase Price",
+        deal.purchase_price,
+        scenario_deal.purchase_price,
+        format_currency,
+        False,
+        True,
+    ),
+    (
+        "Interest Rate",
+        deal.interest_rate / 100,
+        scenario_deal.interest_rate / 100,
+        format_percent,
+        True,
+        False,
+    ),
+    (
+        "Monthly Cash Flow",
+        metrics.monthly_cash_flow,
+        scenario_metrics.monthly_cash_flow,
+        format_currency,
+        False,
+        True,
+    ),
+    (
+        "Annual Cash Flow",
+        metrics.annual_cash_flow,
+        scenario_metrics.annual_cash_flow,
+        format_currency,
+        False,
+        True,
+    ),
+    (
+        "Cash-on-Cash Return",
+        metrics.cash_on_cash_return,
+        scenario_metrics.cash_on_cash_return,
+        format_percent,
+        True,
+        False,
+    ),
+    (
+        "Cap Rate",
+        metrics.cap_rate,
+        scenario_metrics.cap_rate,
+        format_percent,
+        True,
+        False,
+    ),
+    (
+        "DSCR",
+        metrics.dscr,
+        scenario_metrics.dscr,
+        lambda value: f"{value:.2f}",
+        False,
+        False,
+    ),
+]
+
+for label, original, scenario, formatter, is_percent, is_currency in comparison_rows:
+    c1, c2, c3 = st.columns([2, 2, 2])
+    c1.write(label)
+    c2.write(formatter(original))
+    c3.write(
+        f"{formatter(scenario)} "
+        f"({format_delta(scenario - original, is_percent=is_percent, is_currency=is_currency)})"
+    )
+
+h1, h2, h3 = st.columns(3)
+h1.metric("Scenario Grade", scenario_grade)
+h2.metric("Scenario Verdict", scenario_verdict)
+h3.metric(
+    "Cash Flow Improvement",
+    format_currency(scenario_metrics.monthly_cash_flow),
+    delta=format_currency(scenario_metrics.monthly_cash_flow - metrics.monthly_cash_flow),
+)
+
+st.subheader("What Changed")
+
+improvements = []
+if scenario_metrics.monthly_cash_flow > metrics.monthly_cash_flow:
+    improvements.append(
+        f"Monthly cash flow improved by {format_currency(scenario_metrics.monthly_cash_flow - metrics.monthly_cash_flow)}."
+    )
+if scenario_metrics.cash_on_cash_return > metrics.cash_on_cash_return:
+    improvements.append(
+        f"Cash-on-cash return improved by {format_delta(scenario_metrics.cash_on_cash_return - metrics.cash_on_cash_return, is_percent=True)}."
+    )
+if scenario_metrics.dscr > metrics.dscr:
+    improvements.append(
+        f"DSCR improved by {scenario_metrics.dscr - metrics.dscr:.2f}."
+    )
+if scenario_verdict != verdict:
+    improvements.append(f"Verdict changed from {verdict} to {scenario_verdict}.")
+
+if improvements:
+    for item in improvements:
+        st.write(f"- {item}")
+else:
+    st.write("No meaningful improvement yet. Try changing rent, price, or rate.")
 
 st.header("Initial Verdict")
 
