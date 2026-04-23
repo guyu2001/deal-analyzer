@@ -1,5 +1,9 @@
 .venv/
+.venv_storebroken/
 __pycache__/
 *.pyc
 .env
 .streamlit/
+.tmp/
+.pytest_cache/
+pytest-cache-files-*/
