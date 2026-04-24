@@ -27,13 +27,13 @@ Goal: Answer “What would make this a good deal?”
 ---
 
 ### 2. AI “What Would Make This Work”
-- [ ] Add a second AI button:
+- [x] Add a second AI button:
   - “How to improve this deal”
-- [ ] Prompt should:
+- [x] Prompt should:
   - suggest target price
   - suggest rent improvements
   - identify biggest lever
-- [ ] Output actionable negotiation ideas
+- [x] Output actionable negotiation ideas
 
 ---
 
