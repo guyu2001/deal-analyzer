@@ -58,3 +58,61 @@ What would change the verdict:
 - <bullet>
 - <bullet>
 """
+
+WHAT_WOULD_MAKE_THIS_WORK_TEMPLATE = """
+Please evaluate what would need to change for this rental property deal to work.
+
+Current deal inputs:
+{deal_inputs}
+
+Current calculated metrics:
+{deal_metrics}
+
+Current rule-based grade: {grade}
+Current rule-based verdict: {verdict}
+
+Current rule-based strengths:
+{strengths}
+
+Current rule-based concerns:
+{concerns}
+
+Scenario inputs:
+{scenario_inputs}
+
+Scenario calculated metrics:
+{scenario_metrics}
+
+Scenario rule-based grade: {scenario_grade}
+Scenario rule-based verdict: {scenario_verdict}
+
+Instructions:
+- Be conservative and practical.
+- Do not assume appreciation will fix the deal.
+- Do not invent missing market data, comps, rents, or financing terms.
+- If the current information is not enough to support a precise number, say that the number is only a rough threshold based on the provided assumptions.
+- Use the scenario only as a sensitivity reference from the provided assumptions.
+- Focus on cash flow, cash-on-cash return, DSCR, and downside protection.
+
+Please respond in this exact structure:
+
+Target Purchase Price:
+<specific target price or tight range, with a short explanation>
+
+Target Rent:
+<specific target rent or tight range, with a short explanation>
+
+Biggest Lever:
+<the single biggest lever and why it matters most>
+
+Negotiation Ideas:
+- <bullet>
+- <bullet>
+- <bullet>
+
+Worth Pursuing:
+<Yes / Maybe / No>
+
+Why:
+<2-4 sentence practical explanation>
+"""

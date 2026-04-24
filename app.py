@@ -3,7 +3,7 @@ import streamlit as st
 from calculator import build_scenario_deal, calculate_metrics, score_deal
 from models import DealInput
 from utils import format_currency, format_delta, format_percent
-from ai_analysis import generate_ai_analysis
+from ai_analysis import generate_ai_analysis, generate_what_would_make_this_work
 
 st.set_page_config(page_title="AI Deal Analyzer", page_icon="🏠", layout="wide")
 
@@ -251,14 +251,42 @@ st.header("AI Analysis")
 
 if "ai_analysis" not in st.session_state:
     st.session_state.ai_analysis = ""
+if "what_would_make_this_work" not in st.session_state:
+    st.session_state.what_would_make_this_work = ""
 
-if st.button("Run AI Analysis"):
-    with st.spinner("Analyzing deal..."):
-        st.session_state.ai_analysis = generate_ai_analysis(
-            deal, metrics, verdict, strengths, concerns
-        )
+ai_col1, ai_col2 = st.columns(2)
+
+with ai_col1:
+    if st.button("Run AI Analysis"):
+        with st.spinner("Analyzing deal..."):
+            st.session_state.ai_analysis = generate_ai_analysis(
+                deal, metrics, verdict, strengths, concerns
+            )
+
+with ai_col2:
+    if st.button("What Would Make This Work?"):
+        with st.spinner("Analyzing what would make this deal work..."):
+            st.session_state.what_would_make_this_work = generate_what_would_make_this_work(
+                deal,
+                metrics,
+                grade,
+                verdict,
+                strengths,
+                concerns,
+                scenario_deal,
+                scenario_metrics,
+                scenario_grade,
+                scenario_verdict,
+            )
 
 if st.session_state.ai_analysis:
+    st.subheader("AI Analysis")
     st.write(st.session_state.ai_analysis)
 else:
     st.caption("Click the button to generate AI analysis.")
+
+if st.session_state.what_would_make_this_work:
+    st.subheader("What Would Make This Work?")
+    st.write(st.session_state.what_would_make_this_work)
+else:
+    st.caption("Click the button to get practical deal-improvement guidance.")
