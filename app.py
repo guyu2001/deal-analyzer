@@ -52,7 +52,7 @@ deal = DealInput(
 metrics = calculate_metrics(deal)
 grade, verdict, strengths, concerns = score_deal(metrics)
 
-st.header("Scenario Analysis")
+st.subheader("Scenario Analysis")
 st.caption("Test what changes would make the deal stronger.")
 
 s1, s2, s3 = st.columns(3)
@@ -90,31 +90,49 @@ scenario_deal = build_scenario_deal(
 scenario_metrics = calculate_metrics(scenario_deal)
 scenario_grade, scenario_verdict, _, _ = score_deal(scenario_metrics)
 
-st.header("Calculated Metrics")
-
-m1, m2, m3, m4 = st.columns(4)
-m1.metric("Monthly Mortgage", format_currency(metrics.monthly_mortgage))
-m2.metric("Monthly Cash Flow", format_currency(metrics.monthly_cash_flow))
-m3.metric("Annual Cash Flow", format_currency(metrics.annual_cash_flow))
-m4.metric("NOI (Annual)", format_currency(metrics.noi_annual))
-
-m5, m6, m7, m8 = st.columns(4)
-m5.metric("Cap Rate", format_percent(metrics.cap_rate))
-m6.metric("Cash-on-Cash Return", format_percent(metrics.cash_on_cash_return))
-m7.metric("DSCR", f"{metrics.dscr:.2f}")
-m8.metric("Total Cash Invested", format_currency(metrics.total_cash_invested))
-
 st.header("Deal Rating")
 
-g1, g2 = st.columns([1, 3])
+summary1, summary2, summary3, summary4, summary5 = st.columns(5)
+summary1.metric("Grade", grade)
+summary2.metric("Verdict", verdict)
+summary3.metric("Monthly Cash Flow", format_currency(metrics.monthly_cash_flow))
+summary4.metric("Cash-on-Cash Return", format_percent(metrics.cash_on_cash_return))
+summary5.metric("DSCR", f"{metrics.dscr:.2f}")
 
-with g1:
-    st.metric("Grade", grade)
+st.header("Strengths & Concerns")
 
-with g2:
-    st.metric("Verdict", verdict)
+v1, v2 = st.columns(2)
 
-st.header("Original vs Scenario")
+with v1:
+    st.subheader("Strengths")
+    if strengths:
+        for item in strengths:
+            st.write(f"- {item}")
+    else:
+        st.write("No major strengths identified.")
+
+with v2:
+    st.subheader("Concerns")
+    if concerns:
+        for item in concerns:
+            st.write(f"- {item}")
+    else:
+        st.write("No major concerns identified.")
+
+st.header("Key Metrics")
+
+st.caption("Detailed metrics and scenario comparison.")
+
+detail1, detail2, detail3 = st.columns(3)
+detail1.metric("Monthly Mortgage", format_currency(metrics.monthly_mortgage))
+detail2.metric("Annual Cash Flow", format_currency(metrics.annual_cash_flow))
+detail3.metric("NOI (Annual)", format_currency(metrics.noi_annual))
+
+detail4, detail5 = st.columns(2)
+detail4.metric("Cap Rate", format_percent(metrics.cap_rate))
+detail5.metric("Total Cash Invested", format_currency(metrics.total_cash_invested))
+
+st.subheader("Original vs Scenario")
 header1, header2, header3 = st.columns([2, 2, 2])
 header1.markdown("**Metric**")
 header2.markdown("**Original**")
@@ -228,28 +246,6 @@ if improvements:
         st.write(f"- {item}")
 else:
     st.write("No meaningful improvement yet. Try changing rent, price, or rate.")
-
-st.header("Initial Verdict")
-
-st.subheader(verdict)
-
-v1, v2 = st.columns(2)
-
-with v1:
-    st.markdown("### Strengths")
-    if strengths:
-        for item in strengths:
-            st.write(f"- {item}")
-    else:
-        st.write("No major strengths identified.")
-
-with v2:
-    st.markdown("### Concerns")
-    if concerns:
-        for item in concerns:
-            st.write(f"- {item}")
-    else:
-        st.write("No major concerns identified.")
 
 st.header("AI Analysis")
 
