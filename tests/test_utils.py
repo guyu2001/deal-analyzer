@@ -30,3 +30,13 @@ def test_format_delta_formats_currency_positive_and_negative_values() -> None:
 def test_format_delta_formats_percent_positive_and_negative_values() -> None:
     assert format_delta(0.0125, is_percent=True) == "+1.25%"
     assert format_delta(-0.0125, is_percent=True) == "-1.25%"
+
+
+def test_format_delta_formats_zero_values_consistently() -> None:
+    assert format_delta(0.0) == "+0.00"
+    assert format_delta(0.0, is_currency=True) == "+$0.00"
+    assert format_delta(0.0, is_percent=True) == "+0.00%"
+
+
+def test_format_delta_prefers_currency_when_currency_and_percent_are_both_true() -> None:
+    assert format_delta(0.0125, is_percent=True, is_currency=True) == "+$0.01"

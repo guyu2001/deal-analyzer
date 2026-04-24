@@ -2,31 +2,43 @@
 
 This checklist reflects the current codebase and the tests that exist today.
 
+## Run Tests
+
+From the repo root on Windows:
+
+```powershell
+.venv\Scripts\python -m pytest
+.venv\Scripts\python -m pytest -v
+```
+
 ## calculator.py
 
 Covered:
 - [x] `calculate_monthly_mortgage` basic happy path
 - [x] `calculate_monthly_mortgage` zero-interest path
 - [x] `calculate_monthly_mortgage` non-positive loan amount path
+- [x] `calculate_monthly_mortgage` short-term loan case
 - [x] `calculate_metrics` default representative deal
 - [x] `calculate_metrics` zero purchase price / `cap_rate == 0.0`
 - [x] `calculate_metrics` zero cash invested / `cash_on_cash_return == 0.0`
 - [x] `calculate_metrics` zero debt service / `dscr == 0.0`
 - [x] `calculate_break_even_rent` normal case
+- [x] `calculate_break_even_rent` zero-mortgage / cash purchase case
 - [x] `calculate_break_even_rent` impossible case when variable expenses hit 100%
 - [x] `build_scenario_deal` applies adjustments correctly
 - [x] `build_scenario_deal` clamps negative outputs to zero
 - [x] `build_scenario_deal` does not mutate original deal
+- [x] `build_scenario_deal` with no adjustments returns unchanged values
+- [x] Scenario-adjusted metrics flow through `calculate_metrics`
 - [x] `score_deal` `Strong Buy`
 - [x] `score_deal` `Buy`
 - [x] `score_deal` `Maybe`
 - [x] `score_deal` `Pass`
+- [x] Exact threshold boundary tests for `100`, `300`, `0.06`, `0.10`, `1.10`, `1.25`
+- [x] Grade/verdict cutoff boundary tests
 
 Not yet covered:
-- [ ] Exact threshold boundary tests for scoring cutoffs like `100`, `300`, `0.06`, `0.10`, `1.10`, `1.25`
-- [ ] Mortgage behavior for unusual term values like `loan_term_years=1` or other short terms
-- [ ] Break-even rent with zero mortgage / cash purchase case
-- [ ] Scenario deal with no adjustments returns unchanged values
+- [ ] Additional oddball financing inputs beyond the current representative cases
 
 ## utils.py
 
@@ -38,10 +50,10 @@ Covered:
 - [x] `format_delta` plain positive/negative
 - [x] `format_delta` currency positive/negative
 - [x] `format_delta` percent positive/negative
+- [x] `format_delta(0)` behavior
+- [x] Precedence when both `is_percent=True` and `is_currency=True`
 
 Not yet covered:
-- [ ] `format_delta(0)` behavior
-- [ ] Precedence when both `is_percent=True` and `is_currency=True`
 - [ ] Larger rounding edge cases
 
 ## models.py
@@ -55,15 +67,16 @@ Notes:
 
 ## ai_analysis.py
 
-Not yet covered:
-- [ ] Missing `OPENAI_API_KEY` path
-- [ ] Prompt assembly correctness
-- [ ] OpenAI client call shape
-- [ ] Exception handling path
-- [ ] Empty `strengths` / `concerns` formatting
+Covered:
+- [x] Missing `OPENAI_API_KEY` path
+- [x] Prompt assembly correctness for `generate_ai_analysis`
+- [x] OpenAI client call shape
+- [x] Exception handling path
+- [x] Empty `strengths` / `concerns` formatting
+- [x] Scenario-context prompt assembly for `generate_what_would_make_this_work`
 
 Notes:
-- This is the largest uncovered logic area outside the UI.
+- OpenAI calls are mocked in tests; no real API requests are made.
 
 ## prompts.py
 
@@ -95,6 +108,6 @@ Lightly or not covered:
 
 ## Next Best Tests To Add
 
-1. Boundary tests for `score_deal`
-2. Mocked tests for `ai_analysis.generate_ai_analysis`
-3. A small extraction from `app.py` for "What Changed" so that logic can be tested without testing Streamlit directly
+1. A small extraction from `app.py` for "What Changed" so that logic can be tested without testing Streamlit directly
+2. Additional prompt-structure assertions if the prompt format becomes more complex
+3. Broader edge-case tests for unusual financing and expense combinations
