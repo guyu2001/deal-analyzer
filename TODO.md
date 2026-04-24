@@ -8,6 +8,9 @@
 - ✅ Button-triggered AI (cost controlled)
 - ✅ Deal grade (A/B/C/D)
 
+## Completed Recently
+- Local save/load for deal inputs using JSON files in `saved_deals/`
+
 ---
 
 ## Next Session (High Priority)
@@ -40,9 +43,9 @@ Goal: Answer “What would make this a good deal?”
 ## Medium Priority (Product Thinking)
 
 ### 3. Save Deal Locally
-- [ ] Save deal inputs to JSON
-- [ ] Load previous deals
-- [ ] Simple dropdown to switch deals
+- [x] Save deal inputs to JSON
+- [x] Load previous deals
+- [x] Simple dropdown to switch deals
 
 ---
 

@@ -16,6 +16,7 @@ A personal rental property analysis tool built with Streamlit and OpenAI.
   - total cash invested
 - Generate a rule-based verdict
 - Generate optional AI analysis
+- Save and load deal inputs locally from `saved_deals/`
 
 ## Setup
 
@@ -33,9 +34,16 @@ A personal rental property analysis tool built with Streamlit and OpenAI.
 
     streamlit run app.py
 
+## Local Deal Storage
+
+- Use the `Save / Load Deals` section in the app to save the current deal inputs locally
+- Saved deals are stored as one JSON file per deal in `saved_deals/`
+- Only main deal inputs are stored; AI outputs, API keys, and secrets are not saved
+
 ## Files
 
 - `app.py` - Streamlit UI  
+- `deal_storage.py` - local JSON save/load helpers  
 - `calculator.py` - financial calculations and scoring  
 - `ai_analysis.py` - OpenAI call  
 - `models.py` - data models  

@@ -1,6 +1,7 @@
 import streamlit as st
 
 from calculator import build_scenario_deal, calculate_metrics, score_deal
+from deal_storage import list_saved_deals, load_deal, save_deal
 from models import DealInput
 from utils import format_currency, format_delta, format_percent
 from ai_analysis import generate_ai_analysis, generate_what_would_make_this_work
@@ -10,28 +11,106 @@ st.set_page_config(page_title="AI Deal Analyzer", page_icon="🏠", layout="wide
 st.title("AI Deal Analyzer")
 st.caption("Personal rental deal analysis tool")
 
+DEAL_INPUT_DEFAULTS = {
+    "purchase_price": 350000.0,
+    "monthly_rent": 2500.0,
+    "down_payment_pct": 25.0,
+    "interest_rate": 6.5,
+    "loan_term_years": 30,
+    "property_tax_annual": 4200.0,
+    "insurance_annual": 1200.0,
+    "maintenance_pct": 8.0,
+    "vacancy_pct": 5.0,
+    "property_management_pct": 8.0,
+    "hoa_monthly": 0.0,
+    "closing_costs": 7000.0,
+    "rehab_cost": 5000.0,
+}
+
+for key, default_value in DEAL_INPUT_DEFAULTS.items():
+    if key not in st.session_state:
+        st.session_state[key] = default_value
+if "deal_storage_message" not in st.session_state:
+    st.session_state.deal_storage_message = ""
+
 st.header("Deal Inputs")
+
+st.subheader("Save / Load Deals")
+
+if st.session_state.deal_storage_message:
+    st.success(st.session_state.deal_storage_message)
+    st.session_state.deal_storage_message = ""
+
+save_col, load_col = st.columns(2)
+saved_deal_options = list_saved_deals()
+
+with save_col:
+    deal_name = st.text_input("Deal Name", placeholder="e.g. 123 Main St")
+    if st.button("Save Deal"):
+        if deal_name.strip():
+            saved_path = save_deal(
+                deal_name,
+                DealInput(
+                    purchase_price=st.session_state.purchase_price,
+                    monthly_rent=st.session_state.monthly_rent,
+                    down_payment_pct=st.session_state.down_payment_pct,
+                    interest_rate=st.session_state.interest_rate,
+                    loan_term_years=int(st.session_state.loan_term_years),
+                    property_tax_annual=st.session_state.property_tax_annual,
+                    insurance_annual=st.session_state.insurance_annual,
+                    maintenance_pct=st.session_state.maintenance_pct,
+                    vacancy_pct=st.session_state.vacancy_pct,
+                    property_management_pct=st.session_state.property_management_pct,
+                    hoa_monthly=st.session_state.hoa_monthly,
+                    closing_costs=st.session_state.closing_costs,
+                    rehab_cost=st.session_state.rehab_cost,
+                ),
+            )
+            st.session_state.deal_storage_message = f"Saved deal to {saved_path.name}."
+            st.rerun()
+        else:
+            st.error("Enter a deal name before saving.")
+
+with load_col:
+    selected_saved_deal = st.selectbox(
+        "Saved Deals",
+        options=saved_deal_options,
+        index=None,
+        placeholder="Select a saved deal",
+    )
+    if st.button("Load Deal"):
+        if selected_saved_deal:
+            try:
+                loaded_deal = load_deal(selected_saved_deal)
+                for key in DEAL_INPUT_DEFAULTS:
+                    st.session_state[key] = loaded_deal[key]
+                st.session_state.deal_storage_message = f"Loaded deal: {selected_saved_deal}."
+                st.rerun()
+            except FileNotFoundError:
+                st.error("That saved deal could not be found.")
+        else:
+            st.error("Select a saved deal to load.")
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    purchase_price = st.number_input("Purchase Price", min_value=0.0, value=350000.0, step=1000.0)
-    monthly_rent = st.number_input("Monthly Rent", min_value=0.0, value=2500.0, step=50.0)
-    down_payment_pct = st.number_input("Down Payment %", min_value=0.0, max_value=100.0, value=25.0, step=1.0)
-    interest_rate = st.number_input("Interest Rate %", min_value=0.0, value=6.5, step=0.1)
-    loan_term_years = st.number_input("Loan Term (Years)", min_value=1, value=30, step=1)
+    purchase_price = st.number_input("Purchase Price", min_value=0.0, step=1000.0, key="purchase_price")
+    monthly_rent = st.number_input("Monthly Rent", min_value=0.0, step=50.0, key="monthly_rent")
+    down_payment_pct = st.number_input("Down Payment %", min_value=0.0, max_value=100.0, step=1.0, key="down_payment_pct")
+    interest_rate = st.number_input("Interest Rate %", min_value=0.0, step=0.1, key="interest_rate")
+    loan_term_years = st.number_input("Loan Term (Years)", min_value=1, step=1, key="loan_term_years")
 
 with col2:
-    property_tax_annual = st.number_input("Property Tax (Annual)", min_value=0.0, value=4200.0, step=100.0)
-    insurance_annual = st.number_input("Insurance (Annual)", min_value=0.0, value=1200.0, step=100.0)
-    maintenance_pct = st.number_input("Maintenance %", min_value=0.0, max_value=100.0, value=8.0, step=1.0)
-    vacancy_pct = st.number_input("Vacancy %", min_value=0.0, max_value=100.0, value=5.0, step=1.0)
-    property_management_pct = st.number_input("Property Management %", min_value=0.0, max_value=100.0, value=8.0, step=1.0)
+    property_tax_annual = st.number_input("Property Tax (Annual)", min_value=0.0, step=100.0, key="property_tax_annual")
+    insurance_annual = st.number_input("Insurance (Annual)", min_value=0.0, step=100.0, key="insurance_annual")
+    maintenance_pct = st.number_input("Maintenance %", min_value=0.0, max_value=100.0, step=1.0, key="maintenance_pct")
+    vacancy_pct = st.number_input("Vacancy %", min_value=0.0, max_value=100.0, step=1.0, key="vacancy_pct")
+    property_management_pct = st.number_input("Property Management %", min_value=0.0, max_value=100.0, step=1.0, key="property_management_pct")
 
 with col3:
-    hoa_monthly = st.number_input("HOA (Monthly)", min_value=0.0, value=0.0, step=25.0)
-    closing_costs = st.number_input("Closing Costs", min_value=0.0, value=7000.0, step=500.0)
-    rehab_cost = st.number_input("Rehab Cost", min_value=0.0, value=5000.0, step=500.0)
+    hoa_monthly = st.number_input("HOA (Monthly)", min_value=0.0, step=25.0, key="hoa_monthly")
+    closing_costs = st.number_input("Closing Costs", min_value=0.0, step=500.0, key="closing_costs")
+    rehab_cost = st.number_input("Rehab Cost", min_value=0.0, step=500.0, key="rehab_cost")
 
 deal = DealInput(
     purchase_price=purchase_price,

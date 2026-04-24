@@ -1,3 +1,7 @@
+import shutil
+from pathlib import Path
+from uuid import uuid4
+
 import pytest
 
 from models import DealInput, DealMetrics
@@ -50,3 +54,11 @@ def make_metrics():
         return metrics
 
     return _make_metrics
+
+
+@pytest.fixture
+def temporary_storage_dir():
+    storage_dir = Path(".tmp") / "test_saved_deals" / uuid4().hex
+    storage_dir.mkdir(parents=True, exist_ok=True)
+    yield storage_dir
+    shutil.rmtree(storage_dir, ignore_errors=True)
