@@ -1,6 +1,7 @@
 import streamlit as st
 
 from calculator import build_scenario_deal, calculate_metrics, score_deal
+from deal_comparison import build_deal_comparison, compare_grades, compare_values
 from deal_storage import list_saved_deals, load_deal, save_deal
 from models import DealInput
 from utils import format_currency, format_delta, format_percent
@@ -90,6 +91,117 @@ with load_col:
                 st.error("That saved deal could not be found.")
         else:
             st.error("Select a saved deal to load.")
+
+st.header("Deal Comparison")
+
+compare_col1, compare_col2 = st.columns(2)
+
+with compare_col1:
+    comparison_deal_a = st.selectbox(
+        "Deal A",
+        options=saved_deal_options,
+        index=None,
+        placeholder="Select Deal A",
+    )
+
+with compare_col2:
+    comparison_deal_b = st.selectbox(
+        "Deal B",
+        options=saved_deal_options,
+        index=None,
+        placeholder="Select Deal B",
+    )
+
+if comparison_deal_a and comparison_deal_b:
+    try:
+        comparison = build_deal_comparison(
+            load_deal(comparison_deal_a),
+            load_deal(comparison_deal_b),
+        )
+
+        st.caption("Compare saved deals side-by-side.")
+
+        compare_header1, compare_header2, compare_header3 = st.columns([2, 2, 2])
+        compare_header1.markdown("**Metric**")
+        compare_header2.markdown(f"**{comparison_deal_a}**")
+        compare_header3.markdown(f"**{comparison_deal_b}**")
+
+        comparison_rows = [
+            (
+                "Purchase Price",
+                comparison["deal_a"].purchase_price,
+                comparison["deal_b"].purchase_price,
+                format_currency,
+                False,
+            ),
+            (
+                "Monthly Rent",
+                comparison["deal_a"].monthly_rent,
+                comparison["deal_b"].monthly_rent,
+                format_currency,
+                True,
+            ),
+            (
+                "Monthly Cash Flow",
+                comparison["metrics_a"].monthly_cash_flow,
+                comparison["metrics_b"].monthly_cash_flow,
+                format_currency,
+                True,
+            ),
+            (
+                "Cap Rate",
+                comparison["metrics_a"].cap_rate,
+                comparison["metrics_b"].cap_rate,
+                format_percent,
+                True,
+            ),
+            (
+                "Cash-on-Cash Return",
+                comparison["metrics_a"].cash_on_cash_return,
+                comparison["metrics_b"].cash_on_cash_return,
+                format_percent,
+                True,
+            ),
+            (
+                "DSCR",
+                comparison["metrics_a"].dscr,
+                comparison["metrics_b"].dscr,
+                lambda value: f"{value:.2f}",
+                True,
+            ),
+            (
+                "Total Cash Invested",
+                comparison["metrics_a"].total_cash_invested,
+                comparison["metrics_b"].total_cash_invested,
+                format_currency,
+                False,
+            ),
+        ]
+
+        for label, value_a, value_b, formatter, higher_is_better in comparison_rows:
+            better_a, better_b = compare_values(value_a, value_b, higher_is_better=higher_is_better)
+            row1, row2, row3 = st.columns([2, 2, 2])
+            row1.write(label)
+            row2.write(f"{formatter(value_a)} {better_a}".strip())
+            row3.write(f"{formatter(value_b)} {better_b}".strip())
+
+        grade_better_a, grade_better_b = compare_grades(
+            comparison["grade_a"],
+            comparison["grade_b"],
+        )
+
+        grade_row1, grade_row2, grade_row3 = st.columns([2, 2, 2])
+        grade_row1.write("Grade / Verdict")
+        grade_row2.write(
+            f'{comparison["grade_a"]} / {comparison["verdict_a"]} {grade_better_a}'.strip()
+        )
+        grade_row3.write(
+            f'{comparison["grade_b"]} / {comparison["verdict_b"]} {grade_better_b}'.strip()
+        )
+    except FileNotFoundError:
+        st.error("One of the selected saved deals could not be found.")
+else:
+    st.caption("Select two saved deals to compare them side-by-side.")
 
 col1, col2, col3 = st.columns(3)
 

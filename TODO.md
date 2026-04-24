@@ -10,6 +10,7 @@
 
 ## Completed Recently
 - Local save/load for deal inputs using JSON files in `saved_deals/`
+- Side-by-side comparison for two saved deals with metric highlights
 
 ---
 
@@ -50,8 +51,8 @@ Goal: Answer “What would make this a good deal?”
 ---
 
 ### 4. Deal Comparison
-- [ ] Compare 2 deals side-by-side
-- [ ] Highlight best metrics visually
+- [x] Compare 2 deals side-by-side
+- [x] Highlight best metrics visually
 
 ---
 
