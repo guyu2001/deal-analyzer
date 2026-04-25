@@ -57,11 +57,11 @@ Goal: Answer “What would make this a good deal?”
 ---
 
 ### 5. Better Scoring Logic
-- [ ] Make scoring configurable
-- [ ] Add:
+- [x] Make scoring configurable
+- [x] Add:
   - rehab risk weighting
   - vacancy sensitivity
-- [ ] Add “confidence level”
+- [x] Add “confidence level”
 
 ---
 
@@ -105,3 +105,14 @@ Goal: Answer “What would make this a good deal?”
 - Original vs Scenario comparison with metric deltas
 - What I learned:
 - Next step:
+
+### 2026-04-25
+- What I built:
+- Configurable scoring thresholds with detailed scoring results
+- Rehab risk weighting and higher-vacancy stress testing
+- Confidence level output for main deal ratings
+- Tests for scoring thresholds, risk penalties, vacancy stress, confidence, and score_deal compatibility
+- What I learned:
+- Deal grade is more useful when paired with confidence, because fragile deals can look good before stress testing.
+- Next step:
+- Use the tool on a real deal and tune the default thresholds if your target buy box differs.

@@ -3,11 +3,13 @@ import math
 import pytest
 
 from calculator import (
+    ScoringConfig,
     build_scenario_deal,
     calculate_break_even_rent,
     calculate_metrics,
     calculate_monthly_mortgage,
     score_deal,
+    score_deal_detailed,
 )
 
 
@@ -334,3 +336,169 @@ def test_score_deal_grade_boundaries(make_metrics, metrics, expected_grade, expe
 
     assert grade == expected_grade
     assert verdict == expected_verdict
+
+
+def test_score_deal_detailed_uses_configurable_thresholds(make_metrics) -> None:
+    metrics = make_metrics(
+        monthly_cash_flow=300.0,
+        cash_on_cash_return=0.10,
+        cap_rate=0.06,
+        dscr=1.25,
+    )
+    config = ScoringConfig(
+        cash_flow_strong=500.0,
+        cash_flow_positive=250.0,
+        cash_on_cash_strong=0.12,
+        cash_on_cash_acceptable=0.09,
+        cap_rate_acceptable=0.07,
+        dscr_strong=1.40,
+        dscr_acceptable=1.20,
+    )
+
+    result = score_deal_detailed(metrics, config=config)
+
+    assert result.grade == "C"
+    assert result.verdict == "Maybe"
+    assert "Healthy monthly cash flow" not in result.strengths
+    assert "Positive monthly cash flow" in result.strengths
+    assert "Cap rate is on the low side" in result.concerns
+
+
+def test_score_deal_detailed_penalizes_high_rehab_risk(make_deal, make_metrics) -> None:
+    metrics = make_metrics(
+        monthly_cash_flow=500.0,
+        annual_cash_flow=6000.0,
+        noi_annual=26000.0,
+        cap_rate=0.07,
+        cash_on_cash_return=0.12,
+        dscr=1.35,
+    )
+    low_rehab_deal = make_deal(
+        purchase_price=200000.0,
+        monthly_rent=3000.0,
+        rehab_cost=5000.0,
+    )
+    high_rehab_deal = make_deal(
+        purchase_price=200000.0,
+        monthly_rent=3000.0,
+        rehab_cost=45000.0,
+    )
+
+    low_rehab_result = score_deal_detailed(metrics, low_rehab_deal)
+    high_rehab_result = score_deal_detailed(metrics, high_rehab_deal)
+
+    assert high_rehab_result.score == low_rehab_result.score - 2
+    assert high_rehab_result.confidence == "Low"
+    assert "High rehab cost relative to purchase price" in high_rehab_result.concerns
+
+
+def test_score_deal_detailed_penalizes_vacancy_stress(make_deal) -> None:
+    deal = make_deal(monthly_rent=2800.0)
+    metrics = calculate_metrics(deal)
+
+    unstressed_result = score_deal_detailed(metrics)
+    stressed_result = score_deal_detailed(metrics, deal)
+
+    assert stressed_result.score == unstressed_result.score - 2
+    assert stressed_result.vacancy_stress_cash_flow == pytest.approx(
+        -37.18,
+        abs=0.01,
+    )
+    assert "Higher vacancy turns cash flow negative" in stressed_result.concerns
+
+
+def test_score_deal_detailed_applies_smaller_penalty_when_vacancy_stress_barely_survives(
+    make_deal,
+) -> None:
+    deal = make_deal(monthly_rent=2950.0)
+    metrics = calculate_metrics(deal)
+
+    unstressed_result = score_deal_detailed(metrics)
+    stressed_result = score_deal_detailed(metrics, deal)
+
+    assert stressed_result.score == unstressed_result.score - 1
+    assert stressed_result.vacancy_stress_cash_flow == pytest.approx(
+        73.82,
+        abs=0.01,
+    )
+    assert "Vacancy stress leaves a limited cash flow buffer" in stressed_result.concerns
+
+
+@pytest.mark.parametrize(
+    ("metrics_overrides", "expected_confidence"),
+    [
+        (
+            {
+                "monthly_cash_flow": 500.0,
+                "cash_on_cash_return": 0.12,
+                "cap_rate": 0.07,
+                "dscr": 1.35,
+            },
+            "High",
+        ),
+        (
+            {
+                "monthly_cash_flow": 150.0,
+                "cash_on_cash_return": 0.07,
+                "cap_rate": 0.065,
+                "dscr": 1.15,
+            },
+            "Medium",
+        ),
+        (
+            {
+                "monthly_cash_flow": -50.0,
+                "cash_on_cash_return": 0.07,
+                "cap_rate": 0.065,
+                "dscr": 1.15,
+            },
+            "Low",
+        ),
+    ],
+)
+def test_score_deal_detailed_classifies_confidence(
+    make_metrics,
+    metrics_overrides,
+    expected_confidence,
+) -> None:
+    result = score_deal_detailed(make_metrics(**metrics_overrides))
+
+    assert result.confidence == expected_confidence
+
+
+def test_score_deal_detailed_confidence_does_not_punish_all_cash_deals(make_metrics) -> None:
+    metrics = make_metrics(
+        monthly_mortgage=0.0,
+        monthly_cash_flow=500.0,
+        cash_on_cash_return=0.08,
+        cap_rate=0.07,
+        dscr=0.0,
+    )
+
+    result = score_deal_detailed(metrics)
+
+    assert result.confidence == "High"
+    assert result.cash_flow_buffer_ratio is None
+
+
+def test_score_deal_detailed_reports_cash_flow_buffer_ratio(make_metrics) -> None:
+    result = score_deal_detailed(
+        make_metrics(monthly_cash_flow=300.0, monthly_mortgage=1500.0)
+    )
+
+    assert result.cash_flow_buffer_ratio == pytest.approx(0.20)
+
+
+def test_score_deal_keeps_backward_compatible_return_signature(make_metrics) -> None:
+    metrics = make_metrics()
+
+    result = score_deal(metrics)
+
+    assert isinstance(result, tuple)
+    assert len(result) == 4
+    assert result == ("B", "Buy", [
+        "Positive monthly cash flow",
+        "Acceptable cash-on-cash return",
+        "Reasonable cap rate",
+        "Adequate debt-service coverage",
+    ], [])

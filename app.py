@@ -1,6 +1,6 @@
 import streamlit as st
 
-from calculator import build_scenario_deal, calculate_metrics, score_deal
+from calculator import build_scenario_deal, calculate_metrics, score_deal, score_deal_detailed
 from deal_comparison import build_deal_comparison, compare_grades, compare_values
 from deal_storage import list_saved_deals, load_deal, save_deal
 from models import DealInput
@@ -241,7 +241,12 @@ deal = DealInput(
 )
 
 metrics = calculate_metrics(deal)
-grade, verdict, strengths, concerns = score_deal(metrics)
+scoring_result = score_deal_detailed(metrics, deal)
+grade = scoring_result.grade
+verdict = scoring_result.verdict
+confidence = scoring_result.confidence
+strengths = scoring_result.strengths
+concerns = scoring_result.concerns
 
 st.subheader("Scenario Analysis")
 st.caption("Test what changes would make the deal stronger.")
@@ -283,12 +288,13 @@ scenario_grade, scenario_verdict, _, _ = score_deal(scenario_metrics)
 
 st.header("Deal Rating")
 
-summary1, summary2, summary3, summary4, summary5 = st.columns(5)
+summary1, summary2, summary3, summary4, summary5, summary6 = st.columns(6)
 summary1.metric("Grade", grade)
 summary2.metric("Verdict", verdict)
-summary3.metric("Monthly Cash Flow", format_currency(metrics.monthly_cash_flow))
-summary4.metric("Cash-on-Cash Return", format_percent(metrics.cash_on_cash_return))
-summary5.metric("DSCR", f"{metrics.dscr:.2f}")
+summary3.metric("Confidence", confidence)
+summary4.metric("Monthly Cash Flow", format_currency(metrics.monthly_cash_flow))
+summary5.metric("Cash-on-Cash Return", format_percent(metrics.cash_on_cash_return))
+summary6.metric("DSCR", f"{metrics.dscr:.2f}")
 
 st.header("Strengths & Concerns")
 
