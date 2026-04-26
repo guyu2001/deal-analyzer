@@ -129,6 +129,69 @@ def show_deal_storage_message(message: str) -> None:
     placeholder.empty()
 
 
+def grade_caption(grade_value: str) -> str:
+    captions = {
+        "A": "✓ Strong profile",
+        "B": "✓ Workable profile",
+        "C": "△ Borderline profile",
+        "D": "! Risk-heavy profile",
+    }
+    return captions.get(grade_value, "Review profile")
+
+
+def verdict_caption(verdict_value: str) -> str:
+    captions = {
+        "Strong Buy": "✓ Meets strong-deal signals",
+        "Buy": "✓ Clears core checks",
+        "Maybe": "△ Needs closer underwriting",
+        "Pass": "! Does not clear the bar",
+    }
+    return captions.get(verdict_value, "Review decision")
+
+
+def confidence_caption(confidence_value: str) -> str:
+    captions = {
+        "High": "✓ Stable under stress",
+        "Medium": "△ Assumptions matter",
+        "Low": "! Fragile under stress",
+    }
+    return captions.get(confidence_value, "Review confidence")
+
+
+def note_kind(note: str) -> str:
+    risk_terms = ("negative", "weak", "thin", "low", "high rehab", "pass")
+    caution_terms = ("limited", "drops", "stress", "moderate", "borderline")
+    lowered_note = note.lower()
+
+    if any(term in lowered_note for term in risk_terms):
+        return "risk"
+    if any(term in lowered_note for term in caution_terms):
+        return "caution"
+    return "positive"
+
+
+def note_prefix(kind: str) -> str:
+    prefixes = {
+        "positive": "✓",
+        "caution": "△",
+        "risk": "!",
+        "neutral": "-",
+    }
+    return prefixes.get(kind, "-")
+
+
+def write_cued_note(note: str, kind: str = "neutral") -> None:
+    st.markdown(f"{note_prefix(kind)} {note}")
+
+
+def format_comparison_signal(signal: str) -> str:
+    if signal == "Better":
+        return "✓ Better"
+    if signal == "Tie":
+        return "- Tie"
+    return signal
+
+
 deal = build_current_deal()
 metrics = calculate_metrics(deal)
 scoring_result = score_deal_detailed(metrics, deal)
@@ -145,8 +208,11 @@ st.header("Deal Summary")
 with st.container():
     summary1, summary2, summary3 = st.columns(3)
     summary1.metric("Grade", grade)
+    summary1.caption(grade_caption(grade))
     summary2.metric("Verdict", verdict)
+    summary2.caption(verdict_caption(verdict))
     summary3.metric("Confidence", confidence)
+    summary3.caption(confidence_caption(confidence))
 
     summary4, summary5, summary6 = st.columns(3)
     summary4.metric("Monthly Cash Flow", format_currency(metrics.monthly_cash_flow))
@@ -178,24 +244,24 @@ with st.container():
 
     st.caption("Confidence notes")
     for note in build_confidence_notes(scoring_result):
-        st.markdown(f"- {note}")
+        write_cued_note(note, note_kind(note))
 
     stability_col1, stability_col2 = st.columns(2)
     with stability_col1:
         st.subheader("Strengths")
         if strengths:
             for item in strengths:
-                st.write(f"- {item}")
+                write_cued_note(item, "positive")
         else:
-            st.write("No major strengths identified.")
+            write_cued_note("No major strengths identified.", "neutral")
 
     with stability_col2:
         st.subheader("Concerns")
         if concerns:
             for item in concerns:
-                st.write(f"- {item}")
+                write_cued_note(item, note_kind(item))
         else:
-            st.write("No major concerns identified.")
+            write_cued_note("No major concerns identified.", "neutral")
 
 with st.expander("Additional Metrics"):
     detail1, detail2, detail3 = st.columns(3)
@@ -382,7 +448,9 @@ scenario_grade, scenario_verdict, _, _ = score_deal(scenario_metrics)
 
 scenario_summary1, scenario_summary2, scenario_summary3 = st.columns(3)
 scenario_summary1.metric("Scenario Grade", scenario_grade)
+scenario_summary1.caption(grade_caption(scenario_grade))
 scenario_summary2.metric("Scenario Verdict", scenario_verdict)
+scenario_summary2.caption(verdict_caption(scenario_verdict))
 scenario_summary3.metric(
     "Cash Flow Improvement",
     format_currency(scenario_metrics.monthly_cash_flow),
@@ -419,9 +487,12 @@ improvements = build_scenario_change_messages(
 
 if improvements:
     for item in improvements:
-        st.write(f"- {item}")
+        write_cued_note(item, "positive")
 else:
-    st.write("No meaningful improvement yet. Try changing rent, price, or rate.")
+    write_cued_note(
+        "No meaningful improvement yet. Try changing rent, price, or rate.",
+        "caution",
+    )
 
 st.header("Deal Comparison")
 
@@ -517,8 +588,8 @@ if comparison_deal_a and comparison_deal_b:
             )
             row1, row2, row3 = st.columns([2, 2, 2])
             row1.write(label)
-            row2.write(f"{formatter(value_a)} {better_a}".strip())
-            row3.write(f"{formatter(value_b)} {better_b}".strip())
+            row2.write(f"{formatter(value_a)} {format_comparison_signal(better_a)}".strip())
+            row3.write(f"{formatter(value_b)} {format_comparison_signal(better_b)}".strip())
 
         grade_better_a, grade_better_b = compare_grades(
             comparison["grade_a"],
@@ -528,10 +599,10 @@ if comparison_deal_a and comparison_deal_b:
         grade_row1, grade_row2, grade_row3 = st.columns([2, 2, 2])
         grade_row1.write("Grade / Verdict")
         grade_row2.write(
-            f'{comparison["grade_a"]} / {comparison["verdict_a"]} {grade_better_a}'.strip()
+            f'{comparison["grade_a"]} / {comparison["verdict_a"]} {format_comparison_signal(grade_better_a)}'.strip()
         )
         grade_row3.write(
-            f'{comparison["grade_b"]} / {comparison["verdict_b"]} {grade_better_b}'.strip()
+            f'{comparison["grade_b"]} / {comparison["verdict_b"]} {format_comparison_signal(grade_better_b)}'.strip()
         )
     except FileNotFoundError:
         st.error("One of the selected saved deals could not be found.")
