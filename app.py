@@ -1,5 +1,6 @@
 import streamlit as st
 import time
+from urllib.parse import quote
 
 from calculator import (
     build_scenario_deal,
@@ -7,7 +8,12 @@ from calculator import (
     score_deal,
     score_deal_detailed,
 )
-from deal_comparison import build_deal_comparison, compare_grades, compare_values
+from deal_comparison import (
+    build_deal_comparison,
+    compare_grades,
+    compare_values,
+    deal_input_from_dict,
+)
 from deal_storage import list_saved_deals, load_deal, save_deal
 from models import DealInput
 from scenario_analysis import build_scenario_change_messages, build_scenario_comparison_rows
@@ -44,6 +50,8 @@ if "ai_analysis" not in st.session_state:
     st.session_state.ai_analysis = ""
 if "what_would_make_this_work" not in st.session_state:
     st.session_state.what_would_make_this_work = ""
+if "loaded_query_deal" not in st.session_state:
+    st.session_state.loaded_query_deal = ""
 
 
 def build_current_deal() -> DealInput:
@@ -62,6 +70,13 @@ def build_current_deal() -> DealInput:
         closing_costs=st.session_state.closing_costs,
         rehab_cost=st.session_state.rehab_cost,
     )
+
+
+def load_deal_into_session(deal_name: str) -> None:
+    loaded_deal = load_deal(deal_name)
+    for key in DEAL_INPUT_DEFAULTS:
+        st.session_state[key] = loaded_deal[key]
+    st.session_state.deal_storage_message = f"Loaded deal: {deal_name}."
 
 
 def format_optional_currency(value: float | None) -> str:
@@ -192,6 +207,39 @@ def format_comparison_signal(signal: str) -> str:
     return signal
 
 
+def build_portfolio_rows(saved_deal_names: list[str]) -> list[dict]:
+    rows = []
+
+    for saved_deal_name in saved_deal_names:
+        saved_deal = deal_input_from_dict(load_deal(saved_deal_name))
+        saved_metrics = calculate_metrics(saved_deal)
+        saved_scoring = score_deal_detailed(saved_metrics, saved_deal)
+        rows.append(
+            {
+                "Deal": f"?load_deal={quote(saved_deal_name)}",
+                "Grade": saved_scoring.grade,
+                "Verdict": saved_scoring.verdict,
+                "Confidence": saved_scoring.confidence,
+                "Monthly Cash Flow": saved_metrics.monthly_cash_flow,
+                "Cash-on-Cash Return": saved_metrics.cash_on_cash_return * 100,
+                "Cap Rate": saved_metrics.cap_rate * 100,
+                "DSCR": saved_metrics.dscr,
+            }
+        )
+
+    return rows
+
+
+query_deal_name = st.query_params.get("load_deal")
+if query_deal_name and query_deal_name != st.session_state.loaded_query_deal:
+    try:
+        load_deal_into_session(query_deal_name)
+        st.session_state.loaded_query_deal = query_deal_name
+    except FileNotFoundError:
+        st.session_state.deal_storage_message = (
+            f"Saved deal not found: {query_deal_name}."
+        )
+
 deal = build_current_deal()
 metrics = calculate_metrics(deal)
 scoring_result = score_deal_detailed(metrics, deal)
@@ -321,10 +369,7 @@ with st.expander("Save, Load, and Edit Deal Inputs", expanded=True):
         if st.button("Load Deal"):
             if selected_saved_deal:
                 try:
-                    loaded_deal = load_deal(selected_saved_deal)
-                    for key in DEAL_INPUT_DEFAULTS:
-                        st.session_state[key] = loaded_deal[key]
-                    st.session_state.deal_storage_message = f"Loaded deal: {selected_saved_deal}."
+                    load_deal_into_session(selected_saved_deal)
                     st.rerun()
                 except FileNotFoundError:
                     st.error("That saved deal could not be found.")
@@ -608,6 +653,45 @@ if comparison_deal_a and comparison_deal_b:
         st.error("One of the selected saved deals could not be found.")
 else:
     st.caption("Select two saved deals to compare them side-by-side.")
+
+st.header("Portfolio Ranking")
+
+if saved_deal_options:
+    try:
+        portfolio_rows = build_portfolio_rows(saved_deal_options)
+        st.caption("Click a column label to sort. Click a deal name to load it.")
+        st.dataframe(
+            portfolio_rows,
+            column_config={
+                "Deal": st.column_config.LinkColumn(
+                    "Deal",
+                    help="Click to load this saved deal.",
+                    display_text=r"\?load_deal=(.*)",
+                ),
+                "Monthly Cash Flow": st.column_config.NumberColumn(
+                    "Monthly Cash Flow",
+                    format="$%.2f",
+                ),
+                "Cash-on-Cash Return": st.column_config.NumberColumn(
+                    "Cash-on-Cash Return",
+                    format="%.2f%%",
+                ),
+                "Cap Rate": st.column_config.NumberColumn(
+                    "Cap Rate",
+                    format="%.2f%%",
+                ),
+                "DSCR": st.column_config.NumberColumn("DSCR", format="%.2f"),
+            },
+            hide_index=True,
+            width="stretch",
+        )
+        st.caption("Saved deals use the current scoring and metric rules.")
+    except FileNotFoundError:
+        st.error("A saved deal could not be found while building the portfolio ranking.")
+    except KeyError:
+        st.error("A saved deal is missing required fields and could not be ranked.")
+else:
+    st.caption("Save deals to build a portfolio ranking.")
 
 st.header("AI Insights")
 
