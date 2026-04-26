@@ -1,5 +1,37 @@
 # AI Deal Analyzer – TODO
 
+## 🚀 Phase: Validation & Productization (Current Focus)
+
+Goal:
+Make the app usable by a new user with minimal context and gather early feedback,
+while preserving future monetization options.
+
+### Next Steps (Short Term)
+
+- [x] Quick Analysis Mode
+  - minimal inputs: price, rent
+  - auto-fill assumptions
+- [x] Assumption Transparency (show key assumptions clearly)
+- [ ] Confidence & Risk Clarity improvements
+- [ ] Shareable Deal Summary (copyable output)
+
+### Guardrails
+
+- Avoid adding heavy data integrations
+- Avoid expanding feature surface too broadly
+- Keep logic simple and explainable
+- Preserve ability to introduce paid tiers later
+
+### Product Direction
+
+- Positioning: "AI second opinion for real estate deals"
+- Focus on:
+  - risk clarity
+  - decision confidence
+- Avoid competing on:
+  - raw data
+  - number of metrics
+
 ## Current Status
 - ✅ Environment setup complete
 - ✅ Calculator working
@@ -72,8 +104,9 @@ Goal: Answer “What would make this a good deal?”
 - [ ] Auto-import deal data
 
 ### 7. Portfolio View
-- [ ] Multiple properties
-- [ ] Aggregate cash flow
+- [x] Deal ranking / portfolio table
+- [ ] Filtering by status (future)
+- [ ] Aggregate cash flow (future)
 
 ### 8. Turn into SaaS
 - [ ] User accounts
@@ -122,7 +155,9 @@ Goal: Answer “What would make this a good deal?”
 - Extracted scenario comparison rows and "What Changed" messages into `scenario_analysis.py`
 - Added focused tests for scenario row formatting, metric deltas, improvement messages, and no-change behavior
 - Updated README and test coverage docs for the current feature set
+- Added Quick Analysis Mode with price/rent-only inputs and clearly labeled default assumptions
 - What I learned:
 - Scenario logic is easier to trust when the display text is covered outside Streamlit.
+- Quick analysis should use assumptions without overwriting the full underwriting inputs.
 - Next step:
 - Run the app against a real deal and capture any confusing inputs, labels, or defaults while using it.

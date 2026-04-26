@@ -41,9 +41,29 @@ DEAL_INPUT_DEFAULTS = {
     "rehab_cost": 5000.0,
 }
 
+QUICK_ANALYSIS_ASSUMPTIONS = {
+    "down_payment_pct": 25.0,
+    "interest_rate": 6.5,
+    "loan_term_years": 30,
+    "property_tax_pct": 1.2,
+    "insurance_pct": 0.35,
+    "maintenance_pct": 8.0,
+    "vacancy_pct": 8.0,
+    "property_management_pct": 8.0,
+    "hoa_monthly": 0.0,
+    "closing_costs_pct": 2.0,
+    "rehab_cost": 0.0,
+}
+
 for key, default_value in DEAL_INPUT_DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = default_value
+if "analysis_mode" not in st.session_state:
+    st.session_state.analysis_mode = "Full Analysis"
+if "quick_purchase_price" not in st.session_state:
+    st.session_state.quick_purchase_price = st.session_state.purchase_price
+if "quick_monthly_rent" not in st.session_state:
+    st.session_state.quick_monthly_rent = st.session_state.monthly_rent
 if "deal_storage_message" not in st.session_state:
     st.session_state.deal_storage_message = ""
 if "ai_analysis" not in st.session_state:
@@ -55,6 +75,32 @@ if "loaded_query_deal" not in st.session_state:
 
 
 def build_current_deal() -> DealInput:
+    if st.session_state.analysis_mode == "Quick Analysis":
+        purchase_price = st.session_state.quick_purchase_price
+        return DealInput(
+            purchase_price=purchase_price,
+            monthly_rent=st.session_state.quick_monthly_rent,
+            down_payment_pct=QUICK_ANALYSIS_ASSUMPTIONS["down_payment_pct"],
+            interest_rate=QUICK_ANALYSIS_ASSUMPTIONS["interest_rate"],
+            loan_term_years=int(QUICK_ANALYSIS_ASSUMPTIONS["loan_term_years"]),
+            property_tax_annual=(
+                purchase_price * QUICK_ANALYSIS_ASSUMPTIONS["property_tax_pct"] / 100
+            ),
+            insurance_annual=(
+                purchase_price * QUICK_ANALYSIS_ASSUMPTIONS["insurance_pct"] / 100
+            ),
+            maintenance_pct=QUICK_ANALYSIS_ASSUMPTIONS["maintenance_pct"],
+            vacancy_pct=QUICK_ANALYSIS_ASSUMPTIONS["vacancy_pct"],
+            property_management_pct=QUICK_ANALYSIS_ASSUMPTIONS[
+                "property_management_pct"
+            ],
+            hoa_monthly=QUICK_ANALYSIS_ASSUMPTIONS["hoa_monthly"],
+            closing_costs=(
+                purchase_price * QUICK_ANALYSIS_ASSUMPTIONS["closing_costs_pct"] / 100
+            ),
+            rehab_cost=QUICK_ANALYSIS_ASSUMPTIONS["rehab_cost"],
+        )
+
     return DealInput(
         purchase_price=st.session_state.purchase_price,
         monthly_rent=st.session_state.monthly_rent,
@@ -76,6 +122,8 @@ def load_deal_into_session(deal_name: str) -> None:
     loaded_deal = load_deal(deal_name)
     for key in DEAL_INPUT_DEFAULTS:
         st.session_state[key] = loaded_deal[key]
+    st.session_state.quick_purchase_price = loaded_deal["purchase_price"]
+    st.session_state.quick_monthly_rent = loaded_deal["monthly_rent"]
     st.session_state.deal_storage_message = f"Loaded deal: {deal_name}."
 
 
@@ -240,6 +288,15 @@ if query_deal_name and query_deal_name != st.session_state.loaded_query_deal:
             f"Saved deal not found: {query_deal_name}."
         )
 
+st.session_state.analysis_mode = st.segmented_control(
+    "Analysis Mode",
+    options=["Full Analysis", "Quick Analysis"],
+    key="analysis_mode_selector",
+    default=st.session_state.analysis_mode,
+)
+if st.session_state.analysis_mode == "Quick Analysis":
+    st.caption("This is a rough estimate based on typical assumptions.")
+
 deal = build_current_deal()
 metrics = calculate_metrics(deal)
 scoring_result = score_deal_detailed(metrics, deal)
@@ -336,24 +393,7 @@ with st.expander("Save, Load, and Edit Deal Inputs", expanded=True):
         deal_name = st.text_input("Deal Name", placeholder="e.g. 123 Main St")
         if st.button("Save Deal"):
             if deal_name.strip():
-                saved_path = save_deal(
-                    deal_name,
-                    DealInput(
-                        purchase_price=st.session_state.purchase_price,
-                        monthly_rent=st.session_state.monthly_rent,
-                        down_payment_pct=st.session_state.down_payment_pct,
-                        interest_rate=st.session_state.interest_rate,
-                        loan_term_years=int(st.session_state.loan_term_years),
-                        property_tax_annual=st.session_state.property_tax_annual,
-                        insurance_annual=st.session_state.insurance_annual,
-                        maintenance_pct=st.session_state.maintenance_pct,
-                        vacancy_pct=st.session_state.vacancy_pct,
-                        property_management_pct=st.session_state.property_management_pct,
-                        hoa_monthly=st.session_state.hoa_monthly,
-                        closing_costs=st.session_state.closing_costs,
-                        rehab_cost=st.session_state.rehab_cost,
-                    ),
-                )
+                saved_path = save_deal(deal_name, deal)
                 st.session_state.deal_storage_message = f"Saved deal to {saved_path.name}."
                 st.rerun()
             else:
@@ -376,82 +416,143 @@ with st.expander("Save, Load, and Edit Deal Inputs", expanded=True):
             else:
                 st.error("Select a saved deal to load.")
 
-    st.subheader("Property & Financing")
+    if st.session_state.analysis_mode == "Quick Analysis":
+        st.subheader("Quick Inputs")
+        st.caption("This is a rough estimate based on typical assumptions.")
 
-    col1, col2, col3 = st.columns(3)
+        quick_col1, quick_col2 = st.columns(2)
+        with quick_col1:
+            st.number_input(
+                "Purchase Price",
+                min_value=0.0,
+                step=1000.0,
+                key="quick_purchase_price",
+            )
+        with quick_col2:
+            st.number_input(
+                "Monthly Rent",
+                min_value=0.0,
+                step=50.0,
+                key="quick_monthly_rent",
+            )
 
-    with col1:
-        st.number_input(
-            "Purchase Price",
-            min_value=0.0,
-            step=1000.0,
-            key="purchase_price",
-        )
-        st.number_input("Monthly Rent", min_value=0.0, step=50.0, key="monthly_rent")
-        st.number_input(
-            "Down Payment %",
-            min_value=0.0,
-            max_value=100.0,
-            step=1.0,
-            key="down_payment_pct",
-        )
-        st.number_input(
-            "Interest Rate %",
-            min_value=0.0,
-            step=0.1,
-            key="interest_rate",
-        )
-        st.number_input(
-            "Loan Term (Years)",
-            min_value=1,
-            step=1,
-            key="loan_term_years",
-        )
+        st.caption("Quick Analysis assumptions")
+        assumption_col1, assumption_col2, assumption_col3 = st.columns(3)
+        with assumption_col1:
+            st.markdown(
+                f"- Vacancy: {QUICK_ANALYSIS_ASSUMPTIONS['vacancy_pct']:.1f}%"
+            )
+            st.markdown(
+                f"- Maintenance: {QUICK_ANALYSIS_ASSUMPTIONS['maintenance_pct']:.1f}%"
+            )
+            st.markdown(
+                "- Management: "
+                f"{QUICK_ANALYSIS_ASSUMPTIONS['property_management_pct']:.1f}%"
+            )
+        with assumption_col2:
+            st.markdown(
+                "- Property tax: "
+                f"{QUICK_ANALYSIS_ASSUMPTIONS['property_tax_pct']:.2f}% of price "
+                f"({format_currency(deal.property_tax_annual)}/yr)"
+            )
+            st.markdown(
+                "- Insurance: "
+                f"{QUICK_ANALYSIS_ASSUMPTIONS['insurance_pct']:.2f}% of price "
+                f"({format_currency(deal.insurance_annual)}/yr)"
+            )
+            st.markdown(
+                "- Closing costs: "
+                f"{QUICK_ANALYSIS_ASSUMPTIONS['closing_costs_pct']:.1f}% of price "
+                f"({format_currency(deal.closing_costs)})"
+            )
+        with assumption_col3:
+            st.markdown(
+                "- Down payment: "
+                f"{QUICK_ANALYSIS_ASSUMPTIONS['down_payment_pct']:.1f}%"
+            )
+            st.markdown(
+                f"- Interest rate: {QUICK_ANALYSIS_ASSUMPTIONS['interest_rate']:.2f}%"
+            )
+            st.markdown(
+                f"- Loan term: {QUICK_ANALYSIS_ASSUMPTIONS['loan_term_years']} years"
+            )
+    else:
+        st.subheader("Property & Financing")
 
-    with col2:
-        st.number_input(
-            "Property Tax (Annual)",
-            min_value=0.0,
-            step=100.0,
-            key="property_tax_annual",
-        )
-        st.number_input(
-            "Insurance (Annual)",
-            min_value=0.0,
-            step=100.0,
-            key="insurance_annual",
-        )
-        st.number_input(
-            "Maintenance %",
-            min_value=0.0,
-            max_value=100.0,
-            step=1.0,
-            key="maintenance_pct",
-        )
-        st.number_input(
-            "Vacancy %",
-            min_value=0.0,
-            max_value=100.0,
-            step=1.0,
-            key="vacancy_pct",
-        )
-        st.number_input(
-            "Property Management %",
-            min_value=0.0,
-            max_value=100.0,
-            step=1.0,
-            key="property_management_pct",
-        )
+        col1, col2, col3 = st.columns(3)
 
-    with col3:
-        st.number_input("HOA (Monthly)", min_value=0.0, step=25.0, key="hoa_monthly")
-        st.number_input(
-            "Closing Costs",
-            min_value=0.0,
-            step=500.0,
-            key="closing_costs",
-        )
-        st.number_input("Rehab Cost", min_value=0.0, step=500.0, key="rehab_cost")
+        with col1:
+            st.number_input(
+                "Purchase Price",
+                min_value=0.0,
+                step=1000.0,
+                key="purchase_price",
+            )
+            st.number_input("Monthly Rent", min_value=0.0, step=50.0, key="monthly_rent")
+            st.number_input(
+                "Down Payment %",
+                min_value=0.0,
+                max_value=100.0,
+                step=1.0,
+                key="down_payment_pct",
+            )
+            st.number_input(
+                "Interest Rate %",
+                min_value=0.0,
+                step=0.1,
+                key="interest_rate",
+            )
+            st.number_input(
+                "Loan Term (Years)",
+                min_value=1,
+                step=1,
+                key="loan_term_years",
+            )
+
+        with col2:
+            st.number_input(
+                "Property Tax (Annual)",
+                min_value=0.0,
+                step=100.0,
+                key="property_tax_annual",
+            )
+            st.number_input(
+                "Insurance (Annual)",
+                min_value=0.0,
+                step=100.0,
+                key="insurance_annual",
+            )
+            st.number_input(
+                "Maintenance %",
+                min_value=0.0,
+                max_value=100.0,
+                step=1.0,
+                key="maintenance_pct",
+            )
+            st.number_input(
+                "Vacancy %",
+                min_value=0.0,
+                max_value=100.0,
+                step=1.0,
+                key="vacancy_pct",
+            )
+            st.number_input(
+                "Property Management %",
+                min_value=0.0,
+                max_value=100.0,
+                step=1.0,
+                key="property_management_pct",
+            )
+
+        with col3:
+            st.number_input("HOA (Monthly)", min_value=0.0, step=25.0, key="hoa_monthly")
+            st.number_input(
+                "Closing Costs",
+                min_value=0.0,
+                step=500.0,
+                key="closing_costs",
+            )
+            st.number_input("Rehab Cost", min_value=0.0, step=500.0, key="rehab_cost")
 
 st.header("Scenario Analysis")
 st.caption("Test what changes would make the deal stronger.")
