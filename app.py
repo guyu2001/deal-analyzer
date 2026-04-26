@@ -836,20 +836,17 @@ else:
 
 st.header("Shareable Summary")
 st.caption("Plain text summary for email or chat.")
-st.text_area(
-    "Copyable deal summary",
-    value=build_shareable_summary(
-        current_deal_name(),
-        deal,
-        metrics,
-        grade,
-        verdict,
-        confidence,
-        strengths,
-        concerns,
-    ),
-    height=280,
+shareable_summary = build_shareable_summary(
+    current_deal_name(),
+    deal,
+    metrics,
+    grade,
+    verdict,
+    confidence,
+    strengths,
+    concerns,
 )
+st.code(shareable_summary, language="text")
 
 st.header("AI Insights")
 
