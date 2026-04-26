@@ -2,7 +2,6 @@ import math
 import streamlit as st
 import time
 from dataclasses import replace
-from urllib.parse import quote
 
 from calculator import (
     DEFAULT_SCORING_CONFIG,
@@ -78,6 +77,12 @@ if "what_would_make_this_work" not in st.session_state:
     st.session_state.what_would_make_this_work = ""
 if "loaded_query_deal" not in st.session_state:
     st.session_state.loaded_query_deal = ""
+if "active_tab" not in st.session_state:
+    st.session_state.active_tab = "Analyze"
+if "pending_portfolio_deal" not in st.session_state:
+    st.session_state.pending_portfolio_deal = ""
+if "last_opened_portfolio_deal" not in st.session_state:
+    st.session_state.last_opened_portfolio_deal = ""
 
 
 def build_current_deal() -> DealInput:
@@ -327,7 +332,7 @@ def build_portfolio_rows(saved_deal_names: list[str]) -> list[dict]:
         saved_scoring = score_deal_detailed(saved_metrics, saved_deal)
         rows.append(
             {
-                "Deal": f"?load_deal={quote(saved_deal_name)}",
+                "Deal": saved_deal_name,
                 "Grade": saved_scoring.grade,
                 "Verdict": saved_scoring.verdict,
                 "Confidence": saved_scoring.confidence,
@@ -376,26 +381,39 @@ def build_shareable_summary(
     )
 
 
+if st.session_state.pending_portfolio_deal:
+    load_deal_into_session(st.session_state.pending_portfolio_deal)
+    st.session_state.pending_portfolio_deal = ""
+    st.session_state.active_tab = "Analyze"
+    st.query_params.clear()
+
 query_deal_name = st.query_params.get("load_deal")
 if query_deal_name and query_deal_name != st.session_state.loaded_query_deal:
     try:
         load_deal_into_session(query_deal_name)
         st.session_state.loaded_query_deal = query_deal_name
+        st.session_state.active_tab = "Analyze"
     except FileNotFoundError:
         st.session_state.deal_storage_message = (
             f"Saved deal not found: {query_deal_name}."
         )
 
-st.session_state.analysis_mode = st.segmented_control(
-    "Analysis Mode",
-    options=["Full Analysis", "Quick Analysis"],
-    key="analysis_mode_selector",
-    default=st.session_state.analysis_mode,
+analyze_tab, compare_tab, portfolio_tab = st.tabs(
+    ["Analyze", "Compare", "Portfolio"],
+    default=st.session_state.active_tab,
 )
-if st.session_state.analysis_mode == "Quick Analysis":
-    st.caption("This is a rough estimate based on typical assumptions.")
 
-st.text_input("Deal Name", key="deal_name")
+with analyze_tab:
+    st.session_state.analysis_mode = st.segmented_control(
+        "Analysis Mode",
+        options=["Full Analysis", "Quick Analysis"],
+        key="analysis_mode_selector",
+        default=st.session_state.analysis_mode,
+    )
+    if st.session_state.analysis_mode == "Quick Analysis":
+        st.caption("This is a rough estimate based on typical assumptions.")
+
+    st.text_input("Deal Name", key="deal_name")
 
 deal = build_current_deal()
 metrics = calculate_metrics(deal)
@@ -408,561 +426,573 @@ concerns = scoring_result.concerns
 rehab_risk = calculate_rehab_risk(deal)
 saved_deal_options = list_saved_deals()
 
-st.header("Deal Summary")
+with analyze_tab:
+    st.header("Deal Summary")
 
-with st.container():
-    summary1, summary2, summary3 = st.columns(3)
-    summary1.metric("Grade", grade)
-    summary1.caption(grade_caption(grade))
-    summary2.metric("Verdict", verdict)
-    summary2.caption(verdict_caption(verdict))
-    summary3.metric("Confidence", confidence)
-    summary3.caption(confidence_caption(confidence))
+    with st.container():
+        summary1, summary2, summary3 = st.columns(3)
+        summary1.metric("Grade", grade)
+        summary1.caption(grade_caption(grade))
+        summary2.metric("Verdict", verdict)
+        summary2.caption(verdict_caption(verdict))
+        summary3.metric("Confidence", confidence)
+        summary3.caption(confidence_caption(confidence))
 
-    summary4, summary5, summary6 = st.columns(3)
-    summary4.metric("Monthly Cash Flow", format_currency(metrics.monthly_cash_flow))
-    summary5.metric(
-        "Cash-on-Cash Return",
-        format_percent(metrics.cash_on_cash_return),
-    )
-    summary6.metric("DSCR", f"{metrics.dscr:.2f}")
+        summary4, summary5, summary6 = st.columns(3)
+        summary4.metric("Monthly Cash Flow", format_currency(metrics.monthly_cash_flow))
+        summary5.metric(
+            "Cash-on-Cash Return",
+            format_percent(metrics.cash_on_cash_return),
+        )
+        summary6.metric("DSCR", f"{metrics.dscr:.2f}")
 
-st.header("Risk & Stability")
+    st.header("Risk & Stability")
 
-with st.container():
-    risk1, risk2, risk3 = st.columns(3)
-    risk1.metric(
-        "Rehab Risk",
-        "N/A" if rehab_risk is None else format_percent(rehab_risk),
-        help="Rehab cost as a percentage of purchase price.",
-    )
-    risk2.metric(
-        "Stressed Cash Flow",
-        format_optional_currency(scoring_result.vacancy_stress_cash_flow),
-        help="Cash flow after increasing vacancy by 5 percentage points.",
-    )
-    risk3.metric(
-        "Stressed DSCR",
-        format_optional_dscr(scoring_result.vacancy_stress_dscr),
-        help="DSCR after increasing vacancy by 5 percentage points.",
-    )
+    with st.container():
+        risk1, risk2, risk3 = st.columns(3)
+        risk1.metric(
+            "Rehab Risk",
+            "N/A" if rehab_risk is None else format_percent(rehab_risk),
+            help="Rehab cost as a percentage of purchase price.",
+        )
+        risk2.metric(
+            "Stressed Cash Flow",
+            format_optional_currency(scoring_result.vacancy_stress_cash_flow),
+            help="Cash flow after increasing vacancy by 5 percentage points.",
+        )
+        risk3.metric(
+            "Stressed DSCR",
+            format_optional_dscr(scoring_result.vacancy_stress_dscr),
+            help="DSCR after increasing vacancy by 5 percentage points.",
+        )
 
-    st.caption("Confidence notes")
-    for note in build_confidence_notes(scoring_result):
-        write_cued_note(note, note_kind(note))
+        st.caption("Confidence notes")
+        for note in build_confidence_notes(scoring_result):
+            write_cued_note(note, note_kind(note))
 
-    stability_col1, stability_col2 = st.columns(2)
-    with stability_col1:
-        st.subheader("Strengths")
-        if strengths:
-            for item in strengths:
-                write_cued_note(item, "positive")
+        stability_col1, stability_col2 = st.columns(2)
+        with stability_col1:
+            st.subheader("Strengths")
+            if strengths:
+                for item in strengths:
+                    write_cued_note(item, "positive")
+            else:
+                write_cued_note("No major strengths identified.", "neutral")
+
+        with stability_col2:
+            st.subheader("Concerns")
+            if concerns:
+                for item in concerns:
+                    write_cued_note(item, note_kind(item))
+            else:
+                write_cued_note("No major concerns identified.", "neutral")
+
+    st.header("Make This Deal Work")
+
+    with st.container():
+        break_even_rent = calculate_break_even_rent(deal)
+        positive_cash_flow_rent = calculate_target_rent_for_cash_flow(
+            deal,
+            DEFAULT_SCORING_CONFIG.cash_flow_positive,
+        )
+        buy_rent = calculate_rent_needed_for_buy(deal, verdict)
+
+        st.markdown(f"**Break-even rent:** {format_rent_target(break_even_rent)}")
+        st.markdown(
+            "**Positive cash flow rent:** "
+            f"{format_rent_target(positive_cash_flow_rent)}"
+        )
+        st.markdown(f"**Rent needed for Buy:** {format_rent_target(buy_rent)}")
+        st.caption(
+            "Positive cash flow uses the app's current threshold of "
+            f"{format_currency(DEFAULT_SCORING_CONFIG.cash_flow_positive)} per month."
+        )
+
+        if buy_verdict_reached(verdict):
+            st.success("This deal already meets Buy criteria")
+
+    with st.expander("Additional Metrics"):
+        detail1, detail2, detail3 = st.columns(3)
+        detail1.metric("Monthly Mortgage", format_currency(metrics.monthly_mortgage))
+        detail2.metric("Annual Cash Flow", format_currency(metrics.annual_cash_flow))
+        detail3.metric("NOI (Annual)", format_currency(metrics.noi_annual))
+
+        detail4, detail5 = st.columns(2)
+        detail4.metric("Cap Rate", format_percent(metrics.cap_rate))
+        detail5.metric("Total Cash Invested", format_currency(metrics.total_cash_invested))
+
+    st.header("Deal Inputs")
+
+    with st.expander("Save, Load, and Edit Deal Inputs", expanded=True):
+        st.subheader("Save / Load Deals")
+
+        if st.session_state.deal_storage_message:
+            show_deal_storage_message(st.session_state.deal_storage_message)
+            st.session_state.deal_storage_message = ""
+
+        save_col, load_col = st.columns(2)
+
+        with save_col:
+            if st.button("Save Deal"):
+                saved_path = save_deal(current_deal_name(), deal)
+                st.session_state.deal_storage_message = f"Saved deal to {saved_path.name}."
+                st.rerun()
+
+        with load_col:
+            selected_saved_deal = st.selectbox(
+                "Saved Deals",
+                options=saved_deal_options,
+                index=None,
+                placeholder="Select a saved deal",
+            )
+            if st.button("Load Deal"):
+                if selected_saved_deal:
+                    try:
+                        load_deal_into_session(selected_saved_deal)
+                        st.rerun()
+                    except FileNotFoundError:
+                        st.error("That saved deal could not be found.")
+                else:
+                    st.error("Select a saved deal to load.")
+
+        if st.session_state.analysis_mode == "Quick Analysis":
+            st.subheader("Quick Inputs")
+            st.caption("This is a rough estimate based on typical assumptions.")
+
+            quick_col1, quick_col2 = st.columns(2)
+            with quick_col1:
+                st.number_input(
+                    "Purchase Price",
+                    min_value=0.0,
+                    step=1000.0,
+                    key="quick_purchase_price",
+                )
+            with quick_col2:
+                st.number_input(
+                    "Monthly Rent",
+                    min_value=0.0,
+                    step=50.0,
+                    key="quick_monthly_rent",
+                )
+
+            st.caption("Quick Analysis assumptions")
+            assumption_col1, assumption_col2, assumption_col3 = st.columns(3)
+            with assumption_col1:
+                st.markdown(
+                    f"- Vacancy: {QUICK_ANALYSIS_ASSUMPTIONS['vacancy_pct']:.1f}%"
+                )
+                st.markdown(
+                    f"- Maintenance: {QUICK_ANALYSIS_ASSUMPTIONS['maintenance_pct']:.1f}%"
+                )
+                st.markdown(
+                    "- Management: "
+                    f"{QUICK_ANALYSIS_ASSUMPTIONS['property_management_pct']:.1f}%"
+                )
+            with assumption_col2:
+                st.markdown(
+                    "- Property tax: "
+                    f"{QUICK_ANALYSIS_ASSUMPTIONS['property_tax_pct']:.2f}% of price "
+                    f"({format_currency(deal.property_tax_annual)}/yr)"
+                )
+                st.markdown(
+                    "- Insurance: "
+                    f"{QUICK_ANALYSIS_ASSUMPTIONS['insurance_pct']:.2f}% of price "
+                    f"({format_currency(deal.insurance_annual)}/yr)"
+                )
+                st.markdown(
+                    "- Closing costs: "
+                    f"{QUICK_ANALYSIS_ASSUMPTIONS['closing_costs_pct']:.1f}% of price "
+                    f"({format_currency(deal.closing_costs)})"
+                )
+            with assumption_col3:
+                st.markdown(
+                    "- Down payment: "
+                    f"{QUICK_ANALYSIS_ASSUMPTIONS['down_payment_pct']:.1f}%"
+                )
+                st.markdown(
+                    f"- Interest rate: {QUICK_ANALYSIS_ASSUMPTIONS['interest_rate']:.2f}%"
+                )
+                st.markdown(
+                    f"- Loan term: {QUICK_ANALYSIS_ASSUMPTIONS['loan_term_years']} years"
+                )
         else:
-            write_cued_note("No major strengths identified.", "neutral")
+            st.subheader("Property & Financing")
 
-    with stability_col2:
-        st.subheader("Concerns")
-        if concerns:
-            for item in concerns:
-                write_cued_note(item, note_kind(item))
-        else:
-            write_cued_note("No major concerns identified.", "neutral")
+            col1, col2, col3 = st.columns(3)
 
-st.header("Make This Deal Work")
+            with col1:
+                st.number_input(
+                    "Purchase Price",
+                    min_value=0.0,
+                    step=1000.0,
+                    key="purchase_price",
+                )
+                st.number_input("Monthly Rent", min_value=0.0, step=50.0, key="monthly_rent")
+                st.number_input(
+                    "Down Payment %",
+                    min_value=0.0,
+                    max_value=100.0,
+                    step=1.0,
+                    key="down_payment_pct",
+                )
+                st.number_input(
+                    "Interest Rate %",
+                    min_value=0.0,
+                    step=0.1,
+                    key="interest_rate",
+                )
+                st.number_input(
+                    "Loan Term (Years)",
+                    min_value=1,
+                    step=1,
+                    key="loan_term_years",
+                )
 
-with st.container():
-    break_even_rent = calculate_break_even_rent(deal)
-    positive_cash_flow_rent = calculate_target_rent_for_cash_flow(
+            with col2:
+                st.number_input(
+                    "Property Tax (Annual)",
+                    min_value=0.0,
+                    step=100.0,
+                    key="property_tax_annual",
+                )
+                st.number_input(
+                    "Insurance (Annual)",
+                    min_value=0.0,
+                    step=100.0,
+                    key="insurance_annual",
+                )
+                st.number_input(
+                    "Maintenance %",
+                    min_value=0.0,
+                    max_value=100.0,
+                    step=1.0,
+                    key="maintenance_pct",
+                )
+                st.number_input(
+                    "Vacancy %",
+                    min_value=0.0,
+                    max_value=100.0,
+                    step=1.0,
+                    key="vacancy_pct",
+                )
+                st.number_input(
+                    "Property Management %",
+                    min_value=0.0,
+                    max_value=100.0,
+                    step=1.0,
+                    key="property_management_pct",
+                )
+
+            with col3:
+                st.number_input("HOA (Monthly)", min_value=0.0, step=25.0, key="hoa_monthly")
+                st.number_input(
+                    "Closing Costs",
+                    min_value=0.0,
+                    step=500.0,
+                    key="closing_costs",
+                )
+                st.number_input("Rehab Cost", min_value=0.0, step=500.0, key="rehab_cost")
+
+    st.header("Scenario Analysis")
+    st.caption("Test what changes would make the deal stronger.")
+
+    s1, s2, s3 = st.columns(3)
+
+    with s1:
+        scenario_rent_increase = st.number_input(
+            "Rent Increase",
+            value=0.0,
+            step=50.0,
+            help="Increase or decrease the monthly rent for the scenario.",
+        )
+
+    with s2:
+        scenario_purchase_price_adjustment = st.number_input(
+            "Purchase Price Adjustment",
+            value=0.0,
+            step=1000.0,
+            help="Use a negative number for a lower purchase price.",
+        )
+
+    with s3:
+        scenario_interest_rate_change = st.number_input(
+            "Interest Rate Change (%)",
+            value=0.0,
+            step=0.1,
+            help="Use a negative number for a lower interest rate.",
+        )
+
+    scenario_deal = build_scenario_deal(
         deal,
-        DEFAULT_SCORING_CONFIG.cash_flow_positive,
+        rent_increase=scenario_rent_increase,
+        purchase_price_adjustment=scenario_purchase_price_adjustment,
+        interest_rate_change=scenario_interest_rate_change,
     )
-    buy_rent = calculate_rent_needed_for_buy(deal, verdict)
+    scenario_metrics = calculate_metrics(scenario_deal)
+    scenario_grade, scenario_verdict, _, _ = score_deal(scenario_metrics)
 
-    st.markdown(f"**Break-even rent:** {format_rent_target(break_even_rent)}")
-    st.markdown(
-        "**Positive cash flow rent:** "
-        f"{format_rent_target(positive_cash_flow_rent)}"
+    scenario_summary1, scenario_summary2, scenario_summary3 = st.columns(3)
+    scenario_summary1.metric("Scenario Grade", scenario_grade)
+    scenario_summary1.caption(grade_caption(scenario_grade))
+    scenario_summary2.metric("Scenario Verdict", scenario_verdict)
+    scenario_summary2.caption(verdict_caption(scenario_verdict))
+    scenario_summary3.metric(
+        "Cash Flow Improvement",
+        format_currency(scenario_metrics.monthly_cash_flow),
+        delta=format_currency(scenario_metrics.monthly_cash_flow - metrics.monthly_cash_flow),
     )
-    st.markdown(f"**Rent needed for Buy:** {format_rent_target(buy_rent)}")
-    st.caption(
-        "Positive cash flow uses the app's current threshold of "
-        f"{format_currency(DEFAULT_SCORING_CONFIG.cash_flow_positive)} per month."
+
+    st.subheader("Original vs Scenario")
+    header1, header2, header3 = st.columns([2, 2, 2])
+    header1.markdown("**Metric**")
+    header2.markdown("**Original**")
+    header3.markdown("**Scenario**")
+
+    scenario_comparison_rows = build_scenario_comparison_rows(
+        deal,
+        scenario_deal,
+        metrics,
+        scenario_metrics,
     )
 
-    if buy_verdict_reached(verdict):
-        st.success("This deal already meets Buy criteria")
+    for row in scenario_comparison_rows:
+        c1, c2, c3 = st.columns([2, 2, 2])
+        c1.write(row.label)
+        c2.write(row.format_original())
+        c3.write(row.format_scenario_with_delta())
 
-with st.expander("Additional Metrics"):
-    detail1, detail2, detail3 = st.columns(3)
-    detail1.metric("Monthly Mortgage", format_currency(metrics.monthly_mortgage))
-    detail2.metric("Annual Cash Flow", format_currency(metrics.annual_cash_flow))
-    detail3.metric("NOI (Annual)", format_currency(metrics.noi_annual))
+    st.subheader("What Changed")
 
-    detail4, detail5 = st.columns(2)
-    detail4.metric("Cap Rate", format_percent(metrics.cap_rate))
-    detail5.metric("Total Cash Invested", format_currency(metrics.total_cash_invested))
+    improvements = build_scenario_change_messages(
+        metrics,
+        scenario_metrics,
+        verdict,
+        scenario_verdict,
+    )
 
-st.header("Deal Inputs")
+    if improvements:
+        for item in improvements:
+            write_cued_note(item, "positive")
+    else:
+        write_cued_note(
+            "No meaningful improvement yet. Try changing rent, price, or rate.",
+            "caution",
+        )
 
-with st.expander("Save, Load, and Edit Deal Inputs", expanded=True):
-    st.subheader("Save / Load Deals")
+with compare_tab:
+    st.header("Deal Comparison")
 
-    if st.session_state.deal_storage_message:
-        show_deal_storage_message(st.session_state.deal_storage_message)
-        st.session_state.deal_storage_message = ""
+    compare_col1, compare_col2 = st.columns(2)
 
-    save_col, load_col = st.columns(2)
-
-    with save_col:
-        if st.button("Save Deal"):
-            saved_path = save_deal(current_deal_name(), deal)
-            st.session_state.deal_storage_message = f"Saved deal to {saved_path.name}."
-            st.rerun()
-
-    with load_col:
-        selected_saved_deal = st.selectbox(
-            "Saved Deals",
+    with compare_col1:
+        comparison_deal_a = st.selectbox(
+            "Deal A",
             options=saved_deal_options,
             index=None,
-            placeholder="Select a saved deal",
-        )
-        if st.button("Load Deal"):
-            if selected_saved_deal:
-                try:
-                    load_deal_into_session(selected_saved_deal)
-                    st.rerun()
-                except FileNotFoundError:
-                    st.error("That saved deal could not be found.")
-            else:
-                st.error("Select a saved deal to load.")
-
-    if st.session_state.analysis_mode == "Quick Analysis":
-        st.subheader("Quick Inputs")
-        st.caption("This is a rough estimate based on typical assumptions.")
-
-        quick_col1, quick_col2 = st.columns(2)
-        with quick_col1:
-            st.number_input(
-                "Purchase Price",
-                min_value=0.0,
-                step=1000.0,
-                key="quick_purchase_price",
-            )
-        with quick_col2:
-            st.number_input(
-                "Monthly Rent",
-                min_value=0.0,
-                step=50.0,
-                key="quick_monthly_rent",
-            )
-
-        st.caption("Quick Analysis assumptions")
-        assumption_col1, assumption_col2, assumption_col3 = st.columns(3)
-        with assumption_col1:
-            st.markdown(
-                f"- Vacancy: {QUICK_ANALYSIS_ASSUMPTIONS['vacancy_pct']:.1f}%"
-            )
-            st.markdown(
-                f"- Maintenance: {QUICK_ANALYSIS_ASSUMPTIONS['maintenance_pct']:.1f}%"
-            )
-            st.markdown(
-                "- Management: "
-                f"{QUICK_ANALYSIS_ASSUMPTIONS['property_management_pct']:.1f}%"
-            )
-        with assumption_col2:
-            st.markdown(
-                "- Property tax: "
-                f"{QUICK_ANALYSIS_ASSUMPTIONS['property_tax_pct']:.2f}% of price "
-                f"({format_currency(deal.property_tax_annual)}/yr)"
-            )
-            st.markdown(
-                "- Insurance: "
-                f"{QUICK_ANALYSIS_ASSUMPTIONS['insurance_pct']:.2f}% of price "
-                f"({format_currency(deal.insurance_annual)}/yr)"
-            )
-            st.markdown(
-                "- Closing costs: "
-                f"{QUICK_ANALYSIS_ASSUMPTIONS['closing_costs_pct']:.1f}% of price "
-                f"({format_currency(deal.closing_costs)})"
-            )
-        with assumption_col3:
-            st.markdown(
-                "- Down payment: "
-                f"{QUICK_ANALYSIS_ASSUMPTIONS['down_payment_pct']:.1f}%"
-            )
-            st.markdown(
-                f"- Interest rate: {QUICK_ANALYSIS_ASSUMPTIONS['interest_rate']:.2f}%"
-            )
-            st.markdown(
-                f"- Loan term: {QUICK_ANALYSIS_ASSUMPTIONS['loan_term_years']} years"
-            )
-    else:
-        st.subheader("Property & Financing")
-
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-            st.number_input(
-                "Purchase Price",
-                min_value=0.0,
-                step=1000.0,
-                key="purchase_price",
-            )
-            st.number_input("Monthly Rent", min_value=0.0, step=50.0, key="monthly_rent")
-            st.number_input(
-                "Down Payment %",
-                min_value=0.0,
-                max_value=100.0,
-                step=1.0,
-                key="down_payment_pct",
-            )
-            st.number_input(
-                "Interest Rate %",
-                min_value=0.0,
-                step=0.1,
-                key="interest_rate",
-            )
-            st.number_input(
-                "Loan Term (Years)",
-                min_value=1,
-                step=1,
-                key="loan_term_years",
-            )
-
-        with col2:
-            st.number_input(
-                "Property Tax (Annual)",
-                min_value=0.0,
-                step=100.0,
-                key="property_tax_annual",
-            )
-            st.number_input(
-                "Insurance (Annual)",
-                min_value=0.0,
-                step=100.0,
-                key="insurance_annual",
-            )
-            st.number_input(
-                "Maintenance %",
-                min_value=0.0,
-                max_value=100.0,
-                step=1.0,
-                key="maintenance_pct",
-            )
-            st.number_input(
-                "Vacancy %",
-                min_value=0.0,
-                max_value=100.0,
-                step=1.0,
-                key="vacancy_pct",
-            )
-            st.number_input(
-                "Property Management %",
-                min_value=0.0,
-                max_value=100.0,
-                step=1.0,
-                key="property_management_pct",
-            )
-
-        with col3:
-            st.number_input("HOA (Monthly)", min_value=0.0, step=25.0, key="hoa_monthly")
-            st.number_input(
-                "Closing Costs",
-                min_value=0.0,
-                step=500.0,
-                key="closing_costs",
-            )
-            st.number_input("Rehab Cost", min_value=0.0, step=500.0, key="rehab_cost")
-
-st.header("Scenario Analysis")
-st.caption("Test what changes would make the deal stronger.")
-
-s1, s2, s3 = st.columns(3)
-
-with s1:
-    scenario_rent_increase = st.number_input(
-        "Rent Increase",
-        value=0.0,
-        step=50.0,
-        help="Increase or decrease the monthly rent for the scenario.",
-    )
-
-with s2:
-    scenario_purchase_price_adjustment = st.number_input(
-        "Purchase Price Adjustment",
-        value=0.0,
-        step=1000.0,
-        help="Use a negative number for a lower purchase price.",
-    )
-
-with s3:
-    scenario_interest_rate_change = st.number_input(
-        "Interest Rate Change (%)",
-        value=0.0,
-        step=0.1,
-        help="Use a negative number for a lower interest rate.",
-    )
-
-scenario_deal = build_scenario_deal(
-    deal,
-    rent_increase=scenario_rent_increase,
-    purchase_price_adjustment=scenario_purchase_price_adjustment,
-    interest_rate_change=scenario_interest_rate_change,
-)
-scenario_metrics = calculate_metrics(scenario_deal)
-scenario_grade, scenario_verdict, _, _ = score_deal(scenario_metrics)
-
-scenario_summary1, scenario_summary2, scenario_summary3 = st.columns(3)
-scenario_summary1.metric("Scenario Grade", scenario_grade)
-scenario_summary1.caption(grade_caption(scenario_grade))
-scenario_summary2.metric("Scenario Verdict", scenario_verdict)
-scenario_summary2.caption(verdict_caption(scenario_verdict))
-scenario_summary3.metric(
-    "Cash Flow Improvement",
-    format_currency(scenario_metrics.monthly_cash_flow),
-    delta=format_currency(scenario_metrics.monthly_cash_flow - metrics.monthly_cash_flow),
-)
-
-st.subheader("Original vs Scenario")
-header1, header2, header3 = st.columns([2, 2, 2])
-header1.markdown("**Metric**")
-header2.markdown("**Original**")
-header3.markdown("**Scenario**")
-
-scenario_comparison_rows = build_scenario_comparison_rows(
-    deal,
-    scenario_deal,
-    metrics,
-    scenario_metrics,
-)
-
-for row in scenario_comparison_rows:
-    c1, c2, c3 = st.columns([2, 2, 2])
-    c1.write(row.label)
-    c2.write(row.format_original())
-    c3.write(row.format_scenario_with_delta())
-
-st.subheader("What Changed")
-
-improvements = build_scenario_change_messages(
-    metrics,
-    scenario_metrics,
-    verdict,
-    scenario_verdict,
-)
-
-if improvements:
-    for item in improvements:
-        write_cued_note(item, "positive")
-else:
-    write_cued_note(
-        "No meaningful improvement yet. Try changing rent, price, or rate.",
-        "caution",
-    )
-
-st.header("Deal Comparison")
-
-compare_col1, compare_col2 = st.columns(2)
-
-with compare_col1:
-    comparison_deal_a = st.selectbox(
-        "Deal A",
-        options=saved_deal_options,
-        index=None,
-        placeholder="Select Deal A",
-    )
-
-with compare_col2:
-    comparison_deal_b = st.selectbox(
-        "Deal B",
-        options=saved_deal_options,
-        index=None,
-        placeholder="Select Deal B",
-    )
-
-if comparison_deal_a and comparison_deal_b:
-    try:
-        comparison = build_deal_comparison(
-            load_deal(comparison_deal_a),
-            load_deal(comparison_deal_b),
+            placeholder="Select Deal A",
         )
 
-        st.caption("Compare saved deals side-by-side.")
+    with compare_col2:
+        comparison_deal_b = st.selectbox(
+            "Deal B",
+            options=saved_deal_options,
+            index=None,
+            placeholder="Select Deal B",
+        )
 
-        compare_header1, compare_header2, compare_header3 = st.columns([2, 2, 2])
-        compare_header1.markdown("**Metric**")
-        compare_header2.markdown(f"**{comparison_deal_a}**")
-        compare_header3.markdown(f"**{comparison_deal_b}**")
-
-        comparison_rows = [
-            (
-                "Purchase Price",
-                comparison["deal_a"].purchase_price,
-                comparison["deal_b"].purchase_price,
-                format_currency,
-                False,
-            ),
-            (
-                "Monthly Rent",
-                comparison["deal_a"].monthly_rent,
-                comparison["deal_b"].monthly_rent,
-                format_currency,
-                True,
-            ),
-            (
-                "Monthly Cash Flow",
-                comparison["metrics_a"].monthly_cash_flow,
-                comparison["metrics_b"].monthly_cash_flow,
-                format_currency,
-                True,
-            ),
-            (
-                "Cap Rate",
-                comparison["metrics_a"].cap_rate,
-                comparison["metrics_b"].cap_rate,
-                format_percent,
-                True,
-            ),
-            (
-                "Cash-on-Cash Return",
-                comparison["metrics_a"].cash_on_cash_return,
-                comparison["metrics_b"].cash_on_cash_return,
-                format_percent,
-                True,
-            ),
-            (
-                "DSCR",
-                comparison["metrics_a"].dscr,
-                comparison["metrics_b"].dscr,
-                lambda value: f"{value:.2f}",
-                True,
-            ),
-            (
-                "Total Cash Invested",
-                comparison["metrics_a"].total_cash_invested,
-                comparison["metrics_b"].total_cash_invested,
-                format_currency,
-                False,
-            ),
-        ]
-
-        for label, value_a, value_b, formatter, higher_is_better in comparison_rows:
-            better_a, better_b = compare_values(
-                value_a,
-                value_b,
-                higher_is_better=higher_is_better,
+    if comparison_deal_a and comparison_deal_b:
+        try:
+            comparison = build_deal_comparison(
+                load_deal(comparison_deal_a),
+                load_deal(comparison_deal_b),
             )
-            row1, row2, row3 = st.columns([2, 2, 2])
-            row1.write(label)
-            row2.write(f"{formatter(value_a)} {format_comparison_signal(better_a)}".strip())
-            row3.write(f"{formatter(value_b)} {format_comparison_signal(better_b)}".strip())
 
-        grade_better_a, grade_better_b = compare_grades(
-            comparison["grade_a"],
-            comparison["grade_b"],
-        )
+            st.caption("Compare saved deals side-by-side.")
 
-        grade_row1, grade_row2, grade_row3 = st.columns([2, 2, 2])
-        grade_row1.write("Grade / Verdict")
-        grade_row2.write(
-            f'{comparison["grade_a"]} / {comparison["verdict_a"]} {format_comparison_signal(grade_better_a)}'.strip()
-        )
-        grade_row3.write(
-            f'{comparison["grade_b"]} / {comparison["verdict_b"]} {format_comparison_signal(grade_better_b)}'.strip()
-        )
-    except FileNotFoundError:
-        st.error("One of the selected saved deals could not be found.")
-else:
-    st.caption("Select two saved deals to compare them side-by-side.")
+            compare_header1, compare_header2, compare_header3 = st.columns([2, 2, 2])
+            compare_header1.markdown("**Metric**")
+            compare_header2.markdown(f"**{comparison_deal_a}**")
+            compare_header3.markdown(f"**{comparison_deal_b}**")
 
-st.header("Portfolio Ranking")
-
-if saved_deal_options:
-    try:
-        portfolio_rows = build_portfolio_rows(saved_deal_options)
-        st.caption("Click a column label to sort. Click a deal name to load it.")
-        st.dataframe(
-            portfolio_rows,
-            column_config={
-                "Deal": st.column_config.LinkColumn(
-                    "Deal",
-                    help="Click to load this saved deal.",
-                    display_text=r"\?load_deal=(.*)",
+            comparison_rows = [
+                (
+                    "Purchase Price",
+                    comparison["deal_a"].purchase_price,
+                    comparison["deal_b"].purchase_price,
+                    format_currency,
+                    False,
                 ),
-                "Monthly Cash Flow": st.column_config.NumberColumn(
+                (
+                    "Monthly Rent",
+                    comparison["deal_a"].monthly_rent,
+                    comparison["deal_b"].monthly_rent,
+                    format_currency,
+                    True,
+                ),
+                (
                     "Monthly Cash Flow",
-                    format="$%.2f",
+                    comparison["metrics_a"].monthly_cash_flow,
+                    comparison["metrics_b"].monthly_cash_flow,
+                    format_currency,
+                    True,
                 ),
-                "Cash-on-Cash Return": st.column_config.NumberColumn(
-                    "Cash-on-Cash Return",
-                    format="%.2f%%",
-                ),
-                "Cap Rate": st.column_config.NumberColumn(
+                (
                     "Cap Rate",
-                    format="%.2f%%",
+                    comparison["metrics_a"].cap_rate,
+                    comparison["metrics_b"].cap_rate,
+                    format_percent,
+                    True,
                 ),
-                "DSCR": st.column_config.NumberColumn("DSCR", format="%.2f"),
-            },
-            hide_index=True,
-            width="stretch",
-        )
-        st.caption("Saved deals use the current scoring and metric rules.")
-    except FileNotFoundError:
-        st.error("A saved deal could not be found while building the portfolio ranking.")
-    except KeyError:
-        st.error("A saved deal is missing required fields and could not be ranked.")
-else:
-    st.caption("Save deals to build a portfolio ranking.")
+                (
+                    "Cash-on-Cash Return",
+                    comparison["metrics_a"].cash_on_cash_return,
+                    comparison["metrics_b"].cash_on_cash_return,
+                    format_percent,
+                    True,
+                ),
+                (
+                    "DSCR",
+                    comparison["metrics_a"].dscr,
+                    comparison["metrics_b"].dscr,
+                    lambda value: f"{value:.2f}",
+                    True,
+                ),
+                (
+                    "Total Cash Invested",
+                    comparison["metrics_a"].total_cash_invested,
+                    comparison["metrics_b"].total_cash_invested,
+                    format_currency,
+                    False,
+                ),
+            ]
 
-st.header("Shareable Summary")
-st.caption("Plain text summary for email or chat.")
-shareable_summary = build_shareable_summary(
-    current_deal_name(),
-    deal,
-    metrics,
-    grade,
-    verdict,
-    confidence,
-    strengths,
-    concerns,
-)
-st.code(shareable_summary, language="text")
+            for label, value_a, value_b, formatter, higher_is_better in comparison_rows:
+                better_a, better_b = compare_values(
+                    value_a,
+                    value_b,
+                    higher_is_better=higher_is_better,
+                )
+                row1, row2, row3 = st.columns([2, 2, 2])
+                row1.write(label)
+                row2.write(f"{formatter(value_a)} {format_comparison_signal(better_a)}".strip())
+                row3.write(f"{formatter(value_b)} {format_comparison_signal(better_b)}".strip())
 
-st.header("AI Insights")
-
-ai_col1, ai_col2 = st.columns(2)
-
-with ai_col1:
-    if st.button("Run AI Analysis"):
-        with st.spinner("Analyzing deal..."):
-            st.session_state.ai_analysis = generate_ai_analysis(
-                deal, metrics, verdict, strengths, concerns
+            grade_better_a, grade_better_b = compare_grades(
+                comparison["grade_a"],
+                comparison["grade_b"],
             )
 
-with ai_col2:
-    if st.button("What Would Make This Work?"):
-        with st.spinner("Analyzing what would make this deal work..."):
-            st.session_state.what_would_make_this_work = generate_what_would_make_this_work(
-                deal,
-                metrics,
-                grade,
-                verdict,
-                strengths,
-                concerns,
-                scenario_deal,
-                scenario_metrics,
-                scenario_grade,
-                scenario_verdict,
+            grade_row1, grade_row2, grade_row3 = st.columns([2, 2, 2])
+            grade_row1.write("Grade / Verdict")
+            grade_row2.write(
+                f'{comparison["grade_a"]} / {comparison["verdict_a"]} {format_comparison_signal(grade_better_a)}'.strip()
+            )
+            grade_row3.write(
+                f'{comparison["grade_b"]} / {comparison["verdict_b"]} {format_comparison_signal(grade_better_b)}'.strip()
+            )
+        except FileNotFoundError:
+            st.error("One of the selected saved deals could not be found.")
+    else:
+        st.caption("Select two saved deals to compare them side-by-side.")
+
+with portfolio_tab:
+    st.header("Portfolio Ranking")
+
+    if saved_deal_options:
+        try:
+            portfolio_rows = build_portfolio_rows(saved_deal_options)
+            st.caption("Select a row to load it in Analyze.")
+            portfolio_selection = st.dataframe(
+                portfolio_rows,
+                column_config={
+                    "Deal": st.column_config.TextColumn("Deal"),
+                    "Monthly Cash Flow": st.column_config.NumberColumn(
+                        "Monthly Cash Flow",
+                        format="$%.2f",
+                    ),
+                    "Cash-on-Cash Return": st.column_config.NumberColumn(
+                        "Cash-on-Cash Return",
+                        format="%.2f%%",
+                    ),
+                    "Cap Rate": st.column_config.NumberColumn(
+                        "Cap Rate",
+                        format="%.2f%%",
+                    ),
+                    "DSCR": st.column_config.NumberColumn("DSCR", format="%.2f"),
+                },
+                hide_index=True,
+                width="stretch",
+                key="portfolio_ranking_table",
+                on_select="rerun",
+                selection_mode="single-row",
             )
 
-if st.session_state.ai_analysis:
-    st.subheader("AI Analysis")
-    st.write(st.session_state.ai_analysis)
-else:
-    st.caption("Click the button to generate AI analysis.")
+            selected_rows = portfolio_selection.selection.rows
+            if selected_rows:
+                selected_deal_name = portfolio_rows[selected_rows[0]]["Deal"]
+                if selected_deal_name != st.session_state.last_opened_portfolio_deal:
+                    st.session_state.pending_portfolio_deal = selected_deal_name
+                    st.session_state.last_opened_portfolio_deal = selected_deal_name
+                    st.rerun()
 
-if st.session_state.what_would_make_this_work:
-    st.subheader("What Would Make This Work?")
-    st.write(st.session_state.what_would_make_this_work)
-else:
-    st.caption("Click the button to get practical deal-improvement guidance.")
+            st.caption("Saved deals use the current scoring and metric rules.")
+        except FileNotFoundError:
+            st.error("A saved deal could not be found while building the portfolio ranking.")
+        except KeyError:
+            st.error("A saved deal is missing required fields and could not be ranked.")
+    else:
+        st.caption("Save deals to build a portfolio ranking.")
+
+with analyze_tab:
+    st.header("Shareable Summary")
+    st.caption("Plain text summary for email or chat.")
+    shareable_summary = build_shareable_summary(
+        current_deal_name(),
+        deal,
+        metrics,
+        grade,
+        verdict,
+        confidence,
+        strengths,
+        concerns,
+    )
+    st.code(shareable_summary, language="text")
+
+    st.header("AI Insights")
+
+    ai_col1, ai_col2 = st.columns(2)
+
+    with ai_col1:
+        if st.button("Run AI Analysis"):
+            with st.spinner("Analyzing deal..."):
+                st.session_state.ai_analysis = generate_ai_analysis(
+                    deal, metrics, verdict, strengths, concerns
+                )
+
+    with ai_col2:
+        if st.button("What Would Make This Work?"):
+            with st.spinner("Analyzing what would make this deal work..."):
+                st.session_state.what_would_make_this_work = generate_what_would_make_this_work(
+                    deal,
+                    metrics,
+                    grade,
+                    verdict,
+                    strengths,
+                    concerns,
+                    scenario_deal,
+                    scenario_metrics,
+                    scenario_grade,
+                    scenario_verdict,
+                )
+
+    if st.session_state.ai_analysis:
+        st.subheader("AI Analysis")
+        st.write(st.session_state.ai_analysis)
+    else:
+        st.caption("Click the button to generate AI analysis.")
+
+    if st.session_state.what_would_make_this_work:
+        st.subheader("What Would Make This Work?")
+        st.write(st.session_state.what_would_make_this_work)
+    else:
+        st.caption("Click the button to get practical deal-improvement guidance.")
