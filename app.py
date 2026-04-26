@@ -10,7 +10,8 @@ from calculator import (
 from deal_comparison import build_deal_comparison, compare_grades, compare_values
 from deal_storage import list_saved_deals, load_deal, save_deal
 from models import DealInput
-from utils import format_currency, format_delta, format_percent
+from scenario_analysis import build_scenario_change_messages, build_scenario_comparison_rows
+from utils import format_currency, format_percent
 from ai_analysis import generate_ai_analysis, generate_what_would_make_this_work
 
 st.set_page_config(page_title="AI Deal Analyzer", page_icon="🏠", layout="wide")
@@ -394,97 +395,27 @@ header1.markdown("**Metric**")
 header2.markdown("**Original**")
 header3.markdown("**Scenario**")
 
-scenario_comparison_rows = [
-    (
-        "Monthly Rent",
-        deal.monthly_rent,
-        scenario_deal.monthly_rent,
-        format_currency,
-        False,
-        True,
-    ),
-    (
-        "Purchase Price",
-        deal.purchase_price,
-        scenario_deal.purchase_price,
-        format_currency,
-        False,
-        True,
-    ),
-    (
-        "Interest Rate",
-        deal.interest_rate / 100,
-        scenario_deal.interest_rate / 100,
-        format_percent,
-        True,
-        False,
-    ),
-    (
-        "Monthly Cash Flow",
-        metrics.monthly_cash_flow,
-        scenario_metrics.monthly_cash_flow,
-        format_currency,
-        False,
-        True,
-    ),
-    (
-        "Annual Cash Flow",
-        metrics.annual_cash_flow,
-        scenario_metrics.annual_cash_flow,
-        format_currency,
-        False,
-        True,
-    ),
-    (
-        "Cash-on-Cash Return",
-        metrics.cash_on_cash_return,
-        scenario_metrics.cash_on_cash_return,
-        format_percent,
-        True,
-        False,
-    ),
-    (
-        "Cap Rate",
-        metrics.cap_rate,
-        scenario_metrics.cap_rate,
-        format_percent,
-        True,
-        False,
-    ),
-    (
-        "DSCR",
-        metrics.dscr,
-        scenario_metrics.dscr,
-        lambda value: f"{value:.2f}",
-        False,
-        False,
-    ),
-]
+scenario_comparison_rows = build_scenario_comparison_rows(
+    deal,
+    scenario_deal,
+    metrics,
+    scenario_metrics,
+)
 
-for label, original, scenario, formatter, is_percent, is_currency in scenario_comparison_rows:
+for row in scenario_comparison_rows:
     c1, c2, c3 = st.columns([2, 2, 2])
-    c1.write(label)
-    c2.write(formatter(original))
-    c3.write(
-        f"{formatter(scenario)} "
-        f"({format_delta(scenario - original, is_percent=is_percent, is_currency=is_currency)})"
-    )
+    c1.write(row.label)
+    c2.write(row.format_original())
+    c3.write(row.format_scenario_with_delta())
 
 st.subheader("What Changed")
 
-improvements = []
-if scenario_metrics.monthly_cash_flow > metrics.monthly_cash_flow:
-    improvements.append(
-        f"Monthly cash flow improved by {format_currency(scenario_metrics.monthly_cash_flow - metrics.monthly_cash_flow)}."
-    )
-if scenario_metrics.cash_on_cash_return > metrics.cash_on_cash_return:
-    improvements.append(
-        f"Cash-on-cash return improved by {format_delta(scenario_metrics.cash_on_cash_return - metrics.cash_on_cash_return, is_percent=True)}."
-    )
-if scenario_metrics.dscr > metrics.dscr:
-    improvements.append(f"DSCR improved by {scenario_metrics.dscr - metrics.dscr:.2f}.")
-if scenario_verdict != verdict:
-    improvements.append(f"Verdict changed from {verdict} to {scenario_verdict}.")
+improvements = build_scenario_change_messages(
+    metrics,
+    scenario_metrics,
+    verdict,
+    scenario_verdict,
+)
 
 if improvements:
     for item in improvements:

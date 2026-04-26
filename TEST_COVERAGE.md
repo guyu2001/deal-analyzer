@@ -40,6 +40,15 @@ Covered:
 Not yet covered:
 - [ ] Additional oddball financing inputs beyond the current representative cases
 
+## scenario_analysis.py
+
+Covered:
+- [x] Scenario comparison row labels
+- [x] Currency, percent, and number display formatting
+- [x] Positive and negative scenario deltas
+- [x] "What Changed" improvement messages
+- [x] No-change scenario message behavior
+
 ## utils.py
 
 Covered:
@@ -87,17 +96,16 @@ Not yet covered:
 
 Not yet covered:
 - [ ] Streamlit input wiring
-- [ ] Scenario comparison rendering
-- [ ] "What Changed" messaging logic
 - [ ] AI button / session-state behavior
 
 Notes:
-- This is intentionally untested right now because we prioritized pure-function coverage and avoided UI-heavy tests.
+- This is intentionally light right now because we prioritized pure-function coverage and avoided UI-heavy tests. Scenario comparison and "What Changed" logic now live in `scenario_analysis.py`.
 
 ## Summary
 
 Strongly covered:
 - [x] `calculator.py`
+- [x] `scenario_analysis.py`
 - [x] `utils.py`
 
 Lightly or not covered:
@@ -108,6 +116,6 @@ Lightly or not covered:
 
 ## Next Best Tests To Add
 
-1. A small extraction from `app.py` for "What Changed" so that logic can be tested without testing Streamlit directly
-2. Additional prompt-structure assertions if the prompt format becomes more complex
-3. Broader edge-case tests for unusual financing and expense combinations
+1. Additional prompt-structure assertions if the prompt format becomes more complex
+2. Broader edge-case tests for unusual financing and expense combinations
+3. Streamlit smoke tests for input wiring and AI button session-state behavior

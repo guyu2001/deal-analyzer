@@ -116,3 +116,13 @@ Goal: Answer “What would make this a good deal?”
 - Deal grade is more useful when paired with confidence, because fragile deals can look good before stress testing.
 - Next step:
 - Use the tool on a real deal and tune the default thresholds if your target buy box differs.
+
+### 2026-04-26
+- What I built:
+- Extracted scenario comparison rows and "What Changed" messages into `scenario_analysis.py`
+- Added focused tests for scenario row formatting, metric deltas, improvement messages, and no-change behavior
+- Updated README and test coverage docs for the current feature set
+- What I learned:
+- Scenario logic is easier to trust when the display text is covered outside Streamlit.
+- Next step:
+- Run the app against a real deal and capture any confusing inputs, labels, or defaults while using it.

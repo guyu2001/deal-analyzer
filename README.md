@@ -15,8 +15,13 @@ A personal rental property analysis tool built with Streamlit and OpenAI.
   - DSCR
   - total cash invested
 - Generate a rule-based verdict
+- Show a deal grade and confidence level
 - Generate optional AI analysis
+- Ask AI how to improve a weak or borderline deal
+- Test scenario tweaks for rent, purchase price, and interest rate
+- Compare original vs scenario metrics with deltas
 - Save and load deal inputs locally from `saved_deals/`
+- Compare two saved deals side-by-side
 
 ## Setup
 
@@ -44,6 +49,8 @@ A personal rental property analysis tool built with Streamlit and OpenAI.
 
 - `app.py` - Streamlit UI  
 - `deal_storage.py` - local JSON save/load helpers  
+- `deal_comparison.py` - saved-deal comparison helpers  
+- `scenario_analysis.py` - scenario comparison and change-summary helpers  
 - `calculator.py` - financial calculations and scoring  
 - `ai_analysis.py` - OpenAI call  
 - `models.py` - data models  
