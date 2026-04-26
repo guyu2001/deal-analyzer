@@ -278,6 +278,40 @@ def build_portfolio_rows(saved_deal_names: list[str]) -> list[dict]:
     return rows
 
 
+def build_shareable_summary(
+    deal: DealInput,
+    metrics,
+    grade: str,
+    verdict: str,
+    confidence: str,
+    strengths: list[str],
+    concerns: list[str],
+) -> str:
+    top_strengths = strengths[:2] or ["No major strengths identified."]
+    top_concerns = concerns[:2] or ["No major concerns identified."]
+
+    return "\n".join(
+        [
+            "Deal Summary",
+            f"Purchase Price: {format_currency(deal.purchase_price)}",
+            f"Monthly Rent: {format_currency(deal.monthly_rent)}",
+            f"Grade: {grade}",
+            f"Verdict: {verdict}",
+            f"Confidence: {confidence}",
+            f"Monthly Cash Flow: {format_currency(metrics.monthly_cash_flow)}",
+            f"Cash-on-Cash Return: {format_percent(metrics.cash_on_cash_return)}",
+            f"Cap Rate: {format_percent(metrics.cap_rate)}",
+            f"DSCR: {metrics.dscr:.2f}",
+            "",
+            "Top Strengths:",
+            *[f"- {item}" for item in top_strengths],
+            "",
+            "Top Concerns:",
+            *[f"- {item}" for item in top_concerns],
+        ]
+    )
+
+
 query_deal_name = st.query_params.get("load_deal")
 if query_deal_name and query_deal_name != st.session_state.loaded_query_deal:
     try:
@@ -793,6 +827,22 @@ if saved_deal_options:
         st.error("A saved deal is missing required fields and could not be ranked.")
 else:
     st.caption("Save deals to build a portfolio ranking.")
+
+st.header("Shareable Summary")
+st.caption("Plain text summary for email or chat.")
+st.text_area(
+    "Copyable deal summary",
+    value=build_shareable_summary(
+        deal,
+        metrics,
+        grade,
+        verdict,
+        confidence,
+        strengths,
+        concerns,
+    ),
+    height=280,
+)
 
 st.header("AI Insights")
 
