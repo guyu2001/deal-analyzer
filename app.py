@@ -1,9 +1,13 @@
+import math
 import streamlit as st
 import time
+from dataclasses import replace
 from urllib.parse import quote
 
 from calculator import (
+    DEFAULT_SCORING_CONFIG,
     build_scenario_deal,
+    calculate_break_even_rent,
     calculate_metrics,
     score_deal,
     score_deal_detailed,
@@ -152,6 +156,58 @@ def calculate_rehab_risk(deal: DealInput) -> float | None:
     if deal.rehab_cost > 0:
         return None
     return 0.0
+
+
+def calculate_target_rent_for_cash_flow(
+    deal: DealInput,
+    target_cash_flow: float,
+) -> float:
+    break_even_rent = calculate_break_even_rent(deal)
+    variable_expense_ratio = (
+        deal.vacancy_pct
+        + deal.property_management_pct
+        + deal.maintenance_pct
+    ) / 100
+
+    if variable_expense_ratio >= 1:
+        return float("inf")
+
+    return break_even_rent + (target_cash_flow / (1 - variable_expense_ratio))
+
+
+def format_rent_target(value: float) -> str:
+    if math.isinf(value):
+        return "Not achievable with current expense assumptions"
+    return format_currency(value)
+
+
+def buy_verdict_reached(verdict_value: str) -> bool:
+    return verdict_value in {"Buy", "Strong Buy"}
+
+
+def calculate_rent_needed_for_buy(
+    deal: DealInput,
+    current_verdict: str,
+    step: float = 50.0,
+    max_iterations: int = 200,
+) -> float:
+    if buy_verdict_reached(current_verdict):
+        return deal.monthly_rent
+
+    test_rent = max(0.0, deal.monthly_rent)
+    max_rent = test_rent + (step * max_iterations)
+
+    while test_rent <= max_rent:
+        test_deal = replace(deal, monthly_rent=test_rent)
+        test_metrics = calculate_metrics(test_deal)
+        test_scoring = score_deal_detailed(test_metrics, test_deal)
+
+        if buy_verdict_reached(test_scoring.verdict):
+            return test_rent
+
+        test_rent += step
+
+    return float("inf")
 
 
 def build_confidence_notes(scoring_result) -> list[str]:
@@ -411,6 +467,30 @@ with st.container():
                 write_cued_note(item, note_kind(item))
         else:
             write_cued_note("No major concerns identified.", "neutral")
+
+st.header("Make This Deal Work")
+
+with st.container():
+    break_even_rent = calculate_break_even_rent(deal)
+    positive_cash_flow_rent = calculate_target_rent_for_cash_flow(
+        deal,
+        DEFAULT_SCORING_CONFIG.cash_flow_positive,
+    )
+    buy_rent = calculate_rent_needed_for_buy(deal, verdict)
+
+    st.markdown(f"**Break-even rent:** {format_rent_target(break_even_rent)}")
+    st.markdown(
+        "**Positive cash flow rent:** "
+        f"{format_rent_target(positive_cash_flow_rent)}"
+    )
+    st.markdown(f"**Rent needed for Buy:** {format_rent_target(buy_rent)}")
+    st.caption(
+        "Positive cash flow uses the app's current threshold of "
+        f"{format_currency(DEFAULT_SCORING_CONFIG.cash_flow_positive)} per month."
+    )
+
+    if buy_verdict_reached(verdict):
+        st.success("This deal already meets Buy criteria")
 
 with st.expander("Additional Metrics"):
     detail1, detail2, detail3 = st.columns(3)
