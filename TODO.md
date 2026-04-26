@@ -157,9 +157,11 @@ Goal: Answer “What would make this a good deal?”
 - Updated README and test coverage docs for the current feature set
 - Added Quick Analysis Mode with price/rent-only inputs and clearly labeled default assumptions
 - Added a copyable Shareable Summary with the current deal's key metrics, strengths, and concerns
+- Added an editable Deal Name field used for saving, loading, and shareable summaries
 - What I learned:
 - Scenario logic is easier to trust when the display text is covered outside Streamlit.
 - Quick analysis should use assumptions without overwriting the full underwriting inputs.
 - Copyable plain text is enough for sharing early deal opinions without adding accounts or exports.
+- Deal identity should be visible before saving, not introduced only at save time.
 - Next step:
 - Run the app against a real deal and capture any confusing inputs, labels, or defaults while using it.

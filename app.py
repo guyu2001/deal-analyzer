@@ -60,6 +60,8 @@ for key, default_value in DEAL_INPUT_DEFAULTS.items():
         st.session_state[key] = default_value
 if "analysis_mode" not in st.session_state:
     st.session_state.analysis_mode = "Full Analysis"
+if "deal_name" not in st.session_state:
+    st.session_state.deal_name = "Deal 1"
 if "quick_purchase_price" not in st.session_state:
     st.session_state.quick_purchase_price = st.session_state.purchase_price
 if "quick_monthly_rent" not in st.session_state:
@@ -124,7 +126,12 @@ def load_deal_into_session(deal_name: str) -> None:
         st.session_state[key] = loaded_deal[key]
     st.session_state.quick_purchase_price = loaded_deal["purchase_price"]
     st.session_state.quick_monthly_rent = loaded_deal["monthly_rent"]
+    st.session_state.deal_name = deal_name
     st.session_state.deal_storage_message = f"Loaded deal: {deal_name}."
+
+
+def current_deal_name() -> str:
+    return st.session_state.deal_name.strip() or "Deal 1"
 
 
 def format_optional_currency(value: float | None) -> str:
@@ -279,6 +286,7 @@ def build_portfolio_rows(saved_deal_names: list[str]) -> list[dict]:
 
 
 def build_shareable_summary(
+    deal_name: str,
     deal: DealInput,
     metrics,
     grade: str,
@@ -292,7 +300,7 @@ def build_shareable_summary(
 
     return "\n".join(
         [
-            "Deal Summary",
+            f"Deal Summary: {deal_name}",
             f"Purchase Price: {format_currency(deal.purchase_price)}",
             f"Monthly Rent: {format_currency(deal.monthly_rent)}",
             f"Grade: {grade}",
@@ -330,6 +338,8 @@ st.session_state.analysis_mode = st.segmented_control(
 )
 if st.session_state.analysis_mode == "Quick Analysis":
     st.caption("This is a rough estimate based on typical assumptions.")
+
+st.text_input("Deal Name", key="deal_name")
 
 deal = build_current_deal()
 metrics = calculate_metrics(deal)
@@ -424,14 +434,10 @@ with st.expander("Save, Load, and Edit Deal Inputs", expanded=True):
     save_col, load_col = st.columns(2)
 
     with save_col:
-        deal_name = st.text_input("Deal Name", placeholder="e.g. 123 Main St")
         if st.button("Save Deal"):
-            if deal_name.strip():
-                saved_path = save_deal(deal_name, deal)
-                st.session_state.deal_storage_message = f"Saved deal to {saved_path.name}."
-                st.rerun()
-            else:
-                st.error("Enter a deal name before saving.")
+            saved_path = save_deal(current_deal_name(), deal)
+            st.session_state.deal_storage_message = f"Saved deal to {saved_path.name}."
+            st.rerun()
 
     with load_col:
         selected_saved_deal = st.selectbox(
@@ -833,6 +839,7 @@ st.caption("Plain text summary for email or chat.")
 st.text_area(
     "Copyable deal summary",
     value=build_shareable_summary(
+        current_deal_name(),
         deal,
         metrics,
         grade,
