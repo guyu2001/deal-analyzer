@@ -79,6 +79,8 @@ if "loaded_query_deal" not in st.session_state:
     st.session_state.loaded_query_deal = ""
 if "active_tab" not in st.session_state:
     st.session_state.active_tab = "Analyze"
+if "pending_saved_deal" not in st.session_state:
+    st.session_state.pending_saved_deal = ""
 if "pending_portfolio_deal" not in st.session_state:
     st.session_state.pending_portfolio_deal = ""
 if "last_opened_portfolio_deal" not in st.session_state:
@@ -381,8 +383,18 @@ def build_shareable_summary(
     )
 
 
-if st.session_state.pending_portfolio_deal:
-    load_deal_into_session(st.session_state.pending_portfolio_deal)
+pending_deal_name = (
+    st.session_state.pending_saved_deal
+    or st.session_state.pending_portfolio_deal
+)
+if pending_deal_name:
+    try:
+        load_deal_into_session(pending_deal_name)
+    except FileNotFoundError:
+        st.session_state.deal_storage_message = (
+            f"Saved deal not found: {pending_deal_name}."
+        )
+    st.session_state.pending_saved_deal = ""
     st.session_state.pending_portfolio_deal = ""
     st.session_state.active_tab = "Analyze"
     st.query_params.clear()
@@ -547,11 +559,9 @@ with analyze_tab:
             )
             if st.button("Load Deal"):
                 if selected_saved_deal:
-                    try:
-                        load_deal_into_session(selected_saved_deal)
-                        st.rerun()
-                    except FileNotFoundError:
-                        st.error("That saved deal could not be found.")
+                    st.session_state.pending_saved_deal = selected_saved_deal
+                    st.session_state.active_tab = "Analyze"
+                    st.rerun()
                 else:
                     st.error("Select a saved deal to load.")
 
