@@ -135,6 +135,8 @@ def load_deal_into_session(deal_name: str) -> None:
     loaded_deal = load_deal(deal_name)
     for key in DEAL_INPUT_DEFAULTS:
         st.session_state[key] = loaded_deal[key]
+    st.session_state.analysis_mode = "Full Analysis"
+    st.session_state.analysis_mode_selector = "Full Analysis"
     st.session_state.quick_purchase_price = loaded_deal["purchase_price"]
     st.session_state.quick_monthly_rent = loaded_deal["monthly_rent"]
     st.session_state.deal_name = deal_name
@@ -413,6 +415,7 @@ if query_deal_name and query_deal_name != st.session_state.loaded_query_deal:
 analyze_tab, compare_tab, portfolio_tab = st.tabs(
     ["Analyze", "Compare", "Portfolio"],
     default=st.session_state.active_tab,
+    key="active_tab",
 )
 
 with analyze_tab:
@@ -560,7 +563,6 @@ with analyze_tab:
             if st.button("Load Deal"):
                 if selected_saved_deal:
                     st.session_state.pending_saved_deal = selected_saved_deal
-                    st.session_state.active_tab = "Analyze"
                     st.rerun()
                 else:
                     st.error("Select a saved deal to load.")
