@@ -63,6 +63,8 @@ for key, default_value in DEAL_INPUT_DEFAULTS.items():
         st.session_state[key] = default_value
 if "analysis_mode" not in st.session_state:
     st.session_state.analysis_mode = "Full Analysis"
+if "analysis_mode_selector" not in st.session_state:
+    st.session_state.analysis_mode_selector = st.session_state.analysis_mode
 if "deal_name" not in st.session_state:
     st.session_state.deal_name = "Deal 1"
 if "quick_purchase_price" not in st.session_state:
@@ -414,7 +416,6 @@ if query_deal_name and query_deal_name != st.session_state.loaded_query_deal:
 
 analyze_tab, compare_tab, portfolio_tab = st.tabs(
     ["Analyze", "Compare", "Portfolio"],
-    default=st.session_state.active_tab,
     key="active_tab",
 )
 
@@ -423,7 +424,6 @@ with analyze_tab:
         "Analysis Mode",
         options=["Full Analysis", "Quick Analysis"],
         key="analysis_mode_selector",
-        default=st.session_state.analysis_mode,
     )
     if st.session_state.analysis_mode == "Quick Analysis":
         st.caption("This is a rough estimate based on typical assumptions.")
