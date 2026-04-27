@@ -100,6 +100,12 @@ Not yet covered:
 
 Notes:
 - This is intentionally light right now because we prioritized pure-function coverage and avoided UI-heavy tests. Scenario comparison and "What Changed" logic now live in `scenario_analysis.py`.
+- Manual QA should cover the tabbed workflows:
+  - Load a saved deal from Analyze > Save / Load Deals while in Full Analysis.
+  - Load a saved deal from Analyze > Save / Load Deals while in Quick Analysis; the app should switch to Full Analysis and preserve all saved inputs.
+  - Select a saved deal row in Portfolio; the app should load that deal and return to Analyze.
+  - Confirm no Streamlit session-state warnings appear when switching tabs, changing analysis mode, or loading deals.
+  - Confirm AI actions remain button-triggered after tab navigation.
 
 ## Summary
 
@@ -119,3 +125,4 @@ Lightly or not covered:
 1. Additional prompt-structure assertions if the prompt format becomes more complex
 2. Broader edge-case tests for unusual financing and expense combinations
 3. Streamlit smoke tests for input wiring and AI button session-state behavior
+4. Automated coverage for tabbed saved-deal loading if a reliable Streamlit test harness is added
