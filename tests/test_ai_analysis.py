@@ -39,7 +39,31 @@ def test_generate_ai_analysis_returns_missing_key_message_without_api_call(monke
         ["Cap rate is on the low side"],
     )
 
-    assert result == "OPENAI_API_KEY not found in .env file."
+    assert result == "OpenAI API key is not configured. Add it to Streamlit secrets or OPENAI_API_KEY."
+
+
+def test_get_openai_api_key_prefers_streamlit_secrets(monkeypatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "env-key")
+
+    result = ai_analysis.get_openai_api_key({"OPENAI_API_KEY": "secret-key"})
+
+    assert result == "secret-key"
+
+
+def test_get_openai_api_key_falls_back_to_environment(monkeypatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "env-key")
+
+    result = ai_analysis.get_openai_api_key({})
+
+    assert result == "env-key"
+
+
+def test_get_openai_api_key_returns_none_when_missing(monkeypatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    result = ai_analysis.get_openai_api_key({})
+
+    assert result is None
 
 
 def test_generate_ai_analysis_calls_openai_with_expected_prompt_content(

@@ -14,6 +14,32 @@ from prompts import (
 load_dotenv()
 
 
+def get_openai_api_key(secrets=None) -> str | None:
+    if secrets is None:
+        try:
+            import streamlit as st
+
+            secrets = st.secrets
+        except Exception:
+            secrets = None
+
+    if secrets is not None:
+        try:
+            api_key = secrets.get("OPENAI_API_KEY")
+        except AttributeError:
+            try:
+                api_key = secrets["OPENAI_API_KEY"]
+            except (KeyError, TypeError):
+                api_key = None
+        except Exception:
+            api_key = None
+
+        if api_key:
+            return str(api_key)
+
+    return os.getenv("OPENAI_API_KEY") or None
+
+
 def _format_deal_inputs(deal: DealInput) -> str:
     return f"""
 Purchase Price: {deal.purchase_price}
@@ -50,9 +76,9 @@ def _format_bullets(items: list[str]) -> str:
 
 
 def _create_client() -> OpenAI | str:
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = get_openai_api_key()
     if not api_key:
-        return "OPENAI_API_KEY not found in .env file."
+        return "OpenAI API key is not configured. Add it to Streamlit secrets or OPENAI_API_KEY."
     return OpenAI(api_key=api_key)
 
 

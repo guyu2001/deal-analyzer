@@ -35,9 +35,35 @@ A personal rental property analysis tool built with Streamlit and OpenAI.
 
     OPENAI_API_KEY=your_api_key_here
 
+   Do not commit `.env`; it is ignored by git.
+
 4. Run the app:
 
     streamlit run app.py
+
+## OpenAI API Key Setup
+
+The app never hardcodes or displays the OpenAI API key. It checks for the key in this order:
+
+1. Streamlit secrets: `st.secrets["OPENAI_API_KEY"]`
+2. Local environment variable: `OPENAI_API_KEY`
+
+For local development, create a `.env` file in the project root:
+
+    OPENAI_API_KEY=your_api_key_here
+
+For Streamlit Cloud, add this in the app's **Secrets** settings:
+
+    OPENAI_API_KEY = "your_api_key_here"
+
+If no key is configured, the app keeps working and shows a friendly message when an AI action is requested.
+
+## AI Usage Limit
+
+- AI features are limited to 5 uses per browser session by default
+- Both `Run AI Analysis` and `What Would Make This Work?` count toward the same session limit
+- Non-AI calculations, summaries, saved deals, scenarios, and comparisons are not limited
+- Saved deals store only deal inputs, not API keys, secrets, or AI outputs
 
 ## Local Deal Storage
 

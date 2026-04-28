@@ -22,6 +22,13 @@ from models import DealInput
 from scenario_analysis import build_scenario_change_messages, build_scenario_comparison_rows
 from utils import format_currency, format_percent
 from ai_analysis import generate_ai_analysis, generate_what_would_make_this_work
+from ai_usage import (
+    DEFAULT_AI_USAGE_LIMIT,
+    ensure_ai_usage_state,
+    get_ai_usage_count,
+    is_ai_usage_limit_reached,
+    record_ai_usage,
+)
 
 st.set_page_config(page_title="AI Deal Analyzer", page_icon="🏠", layout="wide")
 
@@ -87,6 +94,7 @@ if "pending_portfolio_deal" not in st.session_state:
     st.session_state.pending_portfolio_deal = ""
 if "last_opened_portfolio_deal" not in st.session_state:
     st.session_state.last_opened_portfolio_deal = ""
+ensure_ai_usage_state(st.session_state)
 
 
 def build_current_deal() -> DealInput:
@@ -971,31 +979,56 @@ with analyze_tab:
     st.code(shareable_summary, language="text")
 
     st.header("AI Insights")
+    ai_usage_count = get_ai_usage_count(st.session_state)
+    ai_limit_reached = is_ai_usage_limit_reached(
+        st.session_state,
+        DEFAULT_AI_USAGE_LIMIT,
+    )
+    ai_usage_caption = st.empty()
+    ai_usage_caption.caption(
+        f"AI uses this session: {ai_usage_count} / {DEFAULT_AI_USAGE_LIMIT}"
+    )
+    if ai_limit_reached:
+        st.caption("Session AI limit reached. Non-AI deal analysis still works.")
 
     ai_col1, ai_col2 = st.columns(2)
 
     with ai_col1:
-        if st.button("Run AI Analysis"):
-            with st.spinner("Analyzing deal..."):
-                st.session_state.ai_analysis = generate_ai_analysis(
-                    deal, metrics, verdict, strengths, concerns
+        if st.button("Run AI Analysis", disabled=ai_limit_reached):
+            if not record_ai_usage(st.session_state, DEFAULT_AI_USAGE_LIMIT):
+                st.info("Session AI limit reached. Non-AI deal analysis still works.")
+            else:
+                ai_usage_caption.caption(
+                    "AI uses this session: "
+                    f"{get_ai_usage_count(st.session_state)} / {DEFAULT_AI_USAGE_LIMIT}"
                 )
+                with st.spinner("Analyzing deal..."):
+                    st.session_state.ai_analysis = generate_ai_analysis(
+                        deal, metrics, verdict, strengths, concerns
+                    )
 
     with ai_col2:
-        if st.button("What Would Make This Work?"):
-            with st.spinner("Analyzing what would make this deal work..."):
-                st.session_state.what_would_make_this_work = generate_what_would_make_this_work(
-                    deal,
-                    metrics,
-                    grade,
-                    verdict,
-                    strengths,
-                    concerns,
-                    scenario_deal,
-                    scenario_metrics,
-                    scenario_grade,
-                    scenario_verdict,
+        if st.button("What Would Make This Work?", disabled=ai_limit_reached):
+            if not record_ai_usage(st.session_state, DEFAULT_AI_USAGE_LIMIT):
+                st.info("Session AI limit reached. Non-AI deal analysis still works.")
+            else:
+                ai_usage_caption.caption(
+                    "AI uses this session: "
+                    f"{get_ai_usage_count(st.session_state)} / {DEFAULT_AI_USAGE_LIMIT}"
                 )
+                with st.spinner("Analyzing what would make this deal work..."):
+                    st.session_state.what_would_make_this_work = generate_what_would_make_this_work(
+                        deal,
+                        metrics,
+                        grade,
+                        verdict,
+                        strengths,
+                        concerns,
+                        scenario_deal,
+                        scenario_metrics,
+                        scenario_grade,
+                        scenario_verdict,
+                    )
 
     if st.session_state.ai_analysis:
         st.subheader("AI Analysis")
