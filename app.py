@@ -1,4 +1,5 @@
 import math
+import os
 import streamlit as st
 import time
 from dataclasses import replace
@@ -99,7 +100,25 @@ if "pending_portfolio_deal" not in st.session_state:
     st.session_state.pending_portfolio_deal = ""
 if "last_opened_portfolio_deal" not in st.session_state:
     st.session_state.last_opened_portfolio_deal = ""
+if "feedback_rating" not in st.session_state:
+    st.session_state.feedback_rating = None
+if "feedback_note" not in st.session_state:
+    st.session_state.feedback_note = ""
+if "feedback_submitted" not in st.session_state:
+    st.session_state.feedback_submitted = False
 ensure_ai_usage_state(st.session_state)
+
+
+def get_feedback_url() -> str:
+    try:
+        feedback_url = st.secrets.get("FEEDBACK_URL", "")
+    except Exception:
+        feedback_url = ""
+
+    if not feedback_url:
+        feedback_url = os.environ.get("FEEDBACK_URL", "")
+
+    return str(feedback_url).strip()
 
 
 def build_current_deal() -> DealInput:
@@ -1051,3 +1070,28 @@ with analyze_tab:
         st.write(st.session_state.what_would_make_this_work)
     else:
         st.caption("Click the button to get practical deal-improvement guidance.")
+
+    st.header("Feedback")
+    st.caption("Share quick feedback. Please do not include sensitive personal data.")
+
+    feedback_url = get_feedback_url()
+    if feedback_url:
+        st.link_button("Leave detailed feedback", feedback_url)
+
+    if hasattr(st, "feedback"):
+        st.session_state.feedback_rating = st.feedback(
+            "thumbs",
+            key="feedback_rating_widget",
+        )
+
+    st.text_input(
+        "What was confusing or useful?",
+        key="feedback_note",
+        placeholder="Optional",
+    )
+
+    if st.button("Submit Feedback"):
+        st.session_state.feedback_submitted = True
+
+    if st.session_state.feedback_submitted:
+        st.success("Thanks for the feedback.")
