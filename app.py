@@ -30,10 +30,15 @@ from ai_usage import (
     record_ai_usage,
 )
 
-st.set_page_config(page_title="AI Deal Analyzer", page_icon="🏠", layout="wide")
+st.set_page_config(
+    page_title="AI Real Estate Deal Analyzer",
+    page_icon="🏠",
+    layout="wide",
+)
 
-st.title("AI Deal Analyzer")
-st.caption("Personal rental deal analysis tool")
+st.title("AI Real Estate Deal Analyzer")
+st.caption("Get a quick second opinion on whether a rental deal is worth it.")
+st.caption("Start with Quick Analysis: enter price and rent → see verdict instantly.")
 
 DEAL_INPUT_DEFAULTS = {
     "purchase_price": 350000.0,
@@ -69,7 +74,7 @@ for key, default_value in DEAL_INPUT_DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = default_value
 if "analysis_mode" not in st.session_state:
-    st.session_state.analysis_mode = "Full Analysis"
+    st.session_state.analysis_mode = "Quick Analysis"
 if "analysis_mode_selector" not in st.session_state:
     st.session_state.analysis_mode_selector = st.session_state.analysis_mode
 if "deal_name" not in st.session_state:
@@ -428,11 +433,16 @@ analyze_tab, compare_tab, portfolio_tab = st.tabs(
 )
 
 with analyze_tab:
-    st.session_state.analysis_mode = st.segmented_control(
-        "Analysis Mode",
-        options=["Full Analysis", "Quick Analysis"],
-        key="analysis_mode_selector",
-    )
+    mode_col, mode_note_col = st.columns([2, 1])
+    with mode_col:
+        st.session_state.analysis_mode = st.segmented_control(
+            "Analysis Mode",
+            options=["Quick Analysis", "Full Analysis"],
+            key="analysis_mode_selector",
+        )
+    with mode_note_col:
+        st.caption("Quick Analysis")
+        st.caption("Recommended for first-time use")
     if st.session_state.analysis_mode == "Quick Analysis":
         st.caption("This is a rough estimate based on typical assumptions.")
 
