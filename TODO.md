@@ -165,3 +165,17 @@ Goal: Answer “What would make this a good deal?”
 - Deal identity should be visible before saving, not introduced only at save time.
 - Next step:
 - Run the app against a real deal and capture any confusing inputs, labels, or defaults while using it.
+
+### 2026-04-29
+- What I built:
+- Added first-time user onboarding to the Analyze tab with a concise app intro, Start here cue, and 3-step guide.
+- Polished Quick Analysis so price and rent entry are prominent near the top, support comma-friendly input, and avoid duplicate lower inputs.
+- Redesigned the Analyze tab into a cleaner hero, primary input card, primary result card, and collapsed secondary sections.
+- What I learned:
+- First user feedback: the app was not straightforward enough to understand what it does or where to start.
+- Follow-up UX feedback: the app still felt like a college project, price entry was hard to find, and typing lots of zeros was error-prone.
+- Latest UX feedback: the Analyze tab still felt too much like an engineering dashboard instead of a polished product flow.
+- Next step:
+- Watch whether new users can start with Quick Analysis within 5 seconds without extra explanation.
+- Watch whether comma-friendly top-level inputs reduce entry mistakes for larger purchase prices.
+- Watch whether the input card to result card flow makes the first screen self-explanatory.

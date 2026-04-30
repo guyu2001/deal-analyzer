@@ -1,4 +1,30 @@
-from utils import format_currency, format_delta, format_percent
+import pytest
+
+from utils import format_currency, format_delta, format_percent, parse_dollar_input
+
+
+def test_parse_dollar_input_handles_comma_separated_values() -> None:
+    assert parse_dollar_input("750,000") == 750000.0
+    assert parse_dollar_input("1,000,000") == 1000000.0
+    assert parse_dollar_input("2,500") == 2500.0
+
+
+def test_parse_dollar_input_handles_blank_values() -> None:
+    assert parse_dollar_input("") is None
+    assert parse_dollar_input("   ") is None
+
+
+def test_parse_dollar_input_rejects_invalid_values() -> None:
+    with pytest.raises(ValueError):
+        parse_dollar_input("750k")
+
+    with pytest.raises(ValueError):
+        parse_dollar_input("-100")
+
+
+def test_parse_dollar_input_handles_normal_numeric_strings() -> None:
+    assert parse_dollar_input("750000") == 750000.0
+    assert parse_dollar_input("2500") == 2500.0
 
 
 def test_format_currency_formats_positive_value() -> None:
