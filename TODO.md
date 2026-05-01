@@ -8,11 +8,11 @@ while preserving future monetization options.
 
 ### Next Steps (Short Term)
 
-- [x] Quick Analysis Mode
+- [x] Unified quick input flow
   - minimal inputs: price, rent
-  - auto-fill assumptions
+  - editable advanced assumptions
 - [x] Assumption Transparency (show key assumptions clearly)
-- [ ] Confidence & Risk Clarity improvements
+- [x] Confidence & Risk Clarity improvements
 - [x] Shareable Deal Summary (copyable output)
 
 ### Guardrails
@@ -43,6 +43,8 @@ while preserving future monetization options.
 ## Completed Recently
 - Local save/load for deal inputs using JSON files in `saved_deals/`
 - Side-by-side comparison for two saved deals with metric highlights
+- Unified Analyze inputs so users start with deal name, price, and rent, then edit details only when needed
+- Redesigned Deal Result into a verdict-first screen with numeric explanations and visible assumptions
 
 ---
 
@@ -78,7 +80,7 @@ Goal: Answer “What would make this a good deal?”
 ### 3. Save Deal Locally
 - [x] Save deal inputs to JSON
 - [x] Load previous deals
-- [x] Simple dropdown to switch deals
+- [x] Load saved deals from Portfolio ranking
 
 ---
 
@@ -179,3 +181,18 @@ Goal: Answer “What would make this a good deal?”
 - Watch whether new users can start with Quick Analysis within 5 seconds without extra explanation.
 - Watch whether comma-friendly top-level inputs reduce entry mistakes for larger purchase prices.
 - Watch whether the input card to result card flow makes the first screen self-explanatory.
+
+### 2026-05-01
+- What I built:
+- Moved save/load management into a more natural flow: saving stays near the current deal, loading happens from Portfolio.
+- Redesigned Deal Result around the verdict first, with supporting metrics below instead of competing for attention.
+- Added numeric verdict explanations using cash flow, cash-on-cash return, DSCR, and stressed cash flow where relevant.
+- Replaced the Quick vs Full Analysis toggle with one unified input flow and an Advanced assumptions expander.
+- Added a visible assumptions-used line directly under the verdict explanation so users can see the key underwriting assumptions behind the verdict.
+- Verified the final app state with `python -m py_compile app.py` and `python -m pytest` passing 79 tests.
+- What I learned:
+- The app feels more trustworthy when it explains the verdict with numbers before showing a grid of metrics.
+- Advanced inputs should be available without making the first screen feel like an underwriting spreadsheet.
+- Small assumption transparency belongs near the decision, not hidden after the metrics.
+- Next step:
+- Use the app on a real candidate deal and note which explanation, assumption, or threshold still feels unclear.
