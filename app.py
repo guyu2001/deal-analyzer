@@ -335,6 +335,76 @@ def confidence_caption(confidence_value: str) -> str:
     return captions.get(confidence_value, "Review confidence")
 
 
+def build_verdict_explanation(metrics, scoring_result) -> str:
+    config = DEFAULT_SCORING_CONFIG
+    concerns = scoring_result.concerns
+    cash_flow = format_currency(metrics.monthly_cash_flow)
+    cash_on_cash = format_percent(metrics.cash_on_cash_return)
+    dscr = f"{metrics.dscr:.2f}"
+
+    if (
+        "Weak or negative monthly cash flow" in concerns
+        or metrics.monthly_cash_flow < config.cash_flow_positive
+    ):
+        first_sentence = (
+            f"Monthly cash flow is {cash_flow}, below the "
+            f"{format_currency(config.cash_flow_positive)} minimum target."
+        )
+    elif (
+        "Low cash-on-cash return" in concerns
+        or metrics.cash_on_cash_return < config.cash_on_cash_acceptable
+    ):
+        first_sentence = (
+            f"Cash-on-cash return is {cash_on_cash}, below the "
+            f"{format_percent(config.cash_on_cash_acceptable)} acceptable target."
+        )
+    elif (
+        "Debt-service coverage is thin" in concerns
+        or metrics.dscr < config.dscr_acceptable
+    ):
+        first_sentence = (
+            f"DSCR is {dscr}, below the {config.dscr_acceptable:.2f} target."
+        )
+    elif metrics.monthly_cash_flow >= config.cash_flow_strong:
+        first_sentence = (
+            f"Monthly cash flow is {cash_flow}, above the "
+            f"{format_currency(config.cash_flow_strong)} strong threshold."
+        )
+    elif metrics.cash_on_cash_return >= config.cash_on_cash_strong:
+        first_sentence = (
+            f"Cash-on-cash return is {cash_on_cash}, above the "
+            f"{format_percent(config.cash_on_cash_strong)} strong threshold."
+        )
+    elif metrics.dscr >= config.dscr_strong:
+        first_sentence = f"DSCR is {dscr}, giving the deal debt-service cushion."
+    else:
+        first_sentence = (
+            f"Monthly cash flow is {cash_flow}, positive but below the "
+            f"{format_currency(config.cash_flow_strong)} strong threshold."
+        )
+
+    stress_cash_flow = scoring_result.vacancy_stress_cash_flow
+    if stress_cash_flow is not None and (
+        stress_cash_flow < config.vacancy_cash_flow_buffer
+        or scoring_result.confidence != "High"
+    ):
+        second_sentence = (
+            f"Under higher vacancy, cash flow falls to "
+            f"{format_currency(stress_cash_flow)}, so assumptions matter."
+        )
+    elif metrics.dscr >= config.dscr_strong:
+        second_sentence = f"DSCR is {dscr}, giving the deal debt-service cushion."
+    elif metrics.dscr >= config.dscr_acceptable:
+        second_sentence = f"DSCR is {dscr}, adequate but not a large cushion."
+    else:
+        second_sentence = f"DSCR is {dscr}, below the {config.dscr_acceptable:.2f} target."
+
+    if second_sentence == first_sentence:
+        return first_sentence
+
+    return f"{first_sentence} {second_sentence}"
+
+
 def note_kind(note: str) -> str:
     risk_terms = ("negative", "weak", "thin", "low", "high rehab", "pass")
     caution_terms = ("limited", "drops", "stress", "moderate", "borderline")
@@ -677,21 +747,50 @@ saved_deal_options = list_saved_deals()
 with analyze_tab:
     with st.container(border=True):
         st.markdown("**Deal result**")
-        summary1, summary2, summary3 = st.columns(3)
-        summary1.metric("Grade", grade)
-        summary1.caption(grade_caption(grade))
-        summary2.metric("Verdict", verdict)
-        summary2.caption(verdict_caption(verdict))
-        summary3.metric("Confidence", confidence)
-        summary3.caption(confidence_caption(confidence))
+        verdict_cues = {
+            "Strong Buy": "✓",
+            "Buy": "✓",
+            "Maybe": "△",
+            "Pass": "❌",
+        }
+        verdict_cue = verdict_cues.get(verdict, "△")
 
-        summary4, summary5, summary6 = st.columns(3)
-        summary4.metric("Monthly Cash Flow", format_currency(metrics.monthly_cash_flow))
-        summary5.metric(
+        st.markdown(f"## {verdict_cue} {verdict}")
+        st.write(build_verdict_explanation(metrics, scoring_result))
+
+        reason_items = []
+        if strengths:
+            reason_items.append((strengths[0], "positive"))
+        if concerns:
+            reason_items.append((concerns[0], note_kind(concerns[0])))
+        for strength in strengths[1:]:
+            if len(reason_items) >= 3:
+                break
+            reason_items.append((strength, "positive"))
+        for concern in concerns[1:]:
+            if len(reason_items) >= 3:
+                break
+            reason_items.append((concern, note_kind(concern)))
+
+        if reason_items:
+            st.caption("Key reasons")
+            for reason, reason_kind in reason_items:
+                write_cued_note(reason, reason_kind)
+
+        st.divider()
+
+        support1, support2, support3 = st.columns(3)
+        support1.metric("Cash Flow", format_currency(metrics.monthly_cash_flow))
+        support2.metric(
             "Cash-on-Cash Return",
             format_percent(metrics.cash_on_cash_return),
         )
-        summary6.metric("DSCR", f"{metrics.dscr:.2f}")
+        support3.metric("DSCR", f"{metrics.dscr:.2f}")
+
+        st.caption(
+            f"Grade {grade} - {grade_caption(grade)} | "
+            f"Confidence {confidence} - {confidence_caption(confidence)}"
+        )
 
     with st.expander("Risk & Stability"):
         risk1, risk2, risk3 = st.columns(3)
