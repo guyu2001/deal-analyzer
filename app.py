@@ -639,6 +639,14 @@ with analyze_tab:
 
         st.markdown(f"## {verdict_cue} {verdict}")
         st.write(build_verdict_explanation(metrics, scoring_result))
+        st.markdown(
+            "**Assumptions used:** "
+            f"{deal.down_payment_pct:.0f}% down · "
+            f"{deal.interest_rate:.2f}% interest · "
+            f"{deal.vacancy_pct:.0f}% vacancy · "
+            f"{deal.maintenance_pct:.0f}% maintenance · "
+            "Edit in Advanced assumptions"
+        )
 
         reason_items = []
         if strengths:
