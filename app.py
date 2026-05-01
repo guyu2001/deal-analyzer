@@ -654,6 +654,15 @@ with analyze_tab:
                         key="rehab_cost",
                     )
 
+        if st.session_state.deal_storage_message:
+            show_deal_storage_message(st.session_state.deal_storage_message)
+            st.session_state.deal_storage_message = ""
+
+        if st.button("Save current deal"):
+            saved_path = save_deal(current_deal_name(), build_current_deal())
+            st.session_state.deal_storage_message = f"Saved deal to {saved_path.name}."
+            st.rerun()
+
 deal = build_current_deal()
 metrics = calculate_metrics(deal)
 scoring_result = score_deal_detailed(metrics, deal)
@@ -754,33 +763,6 @@ with analyze_tab:
         detail4, detail5 = st.columns(2)
         detail4.metric("Cap Rate", format_percent(metrics.cap_rate))
         detail5.metric("Total Cash Invested", format_currency(metrics.total_cash_invested))
-
-    with st.expander("Save / Load"):
-        if st.session_state.deal_storage_message:
-            show_deal_storage_message(st.session_state.deal_storage_message)
-            st.session_state.deal_storage_message = ""
-
-        save_col, load_col = st.columns(2)
-
-        with save_col:
-            if st.button("Save Deal"):
-                saved_path = save_deal(current_deal_name(), deal)
-                st.session_state.deal_storage_message = f"Saved deal to {saved_path.name}."
-                st.rerun()
-
-        with load_col:
-            selected_saved_deal = st.selectbox(
-                "Saved Deals",
-                options=saved_deal_options,
-                index=None,
-                placeholder="Select a saved deal",
-            )
-            if st.button("Load Deal"):
-                if selected_saved_deal:
-                    st.session_state.pending_saved_deal = selected_saved_deal
-                    st.rerun()
-                else:
-                    st.error("Select a saved deal to load.")
 
     with st.expander("Scenario Analysis"):
         s1, s2, s3 = st.columns(3)
