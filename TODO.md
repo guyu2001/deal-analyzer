@@ -6,6 +6,34 @@ Goal:
 Make the app usable by a new user with minimal context and gather early feedback,
 while preserving future monetization options.
 
+## ⚠️ Important Product Trust / Data Persistence
+
+- [ ] Clarify that saved deals on Streamlit Cloud are temporary/demo-only
+- [ ] Add user-facing warning near Save current deal
+- [ ] Research safer persistence options
+- [ ] Add Export Deal / Import Deal JSON as near-term solution
+- [ ] Later: evaluate real backend storage such as Supabase/Firebase
+- [ ] Ensure saved deals are user-specific before treating this as production-ready
+
+## Newbie-Friendly Explanations
+
+- [ ] Add short hints/tooltips for DSCR
+- [ ] Add short hints/tooltips for cash-on-cash return
+- [ ] Add short hints/tooltips for cap rate
+- [ ] Add short hints/tooltips for NOI
+- [ ] Add short hints/tooltips for vacancy
+- [ ] Keep hints plain-English and non-intrusive
+
+## Real-World Data Assist
+
+- [ ] Research safe sources for current mortgage / interest rate estimates
+- [ ] Add optional “Use current estimated interest rate” helper
+- [ ] Explore city/state or ZIP-based assumptions
+- [ ] Explore rent estimate assist
+- [ ] Clearly label imported/estimated values as assumptions
+- [ ] Allow manual override
+- [ ] Avoid scraping Zillow/Redfin unless data access is clearly allowed
+
 ### Next Steps (Short Term)
 
 - [x] Unified quick input flow
@@ -194,5 +222,8 @@ Goal: Answer “What would make this a good deal?”
 - The app feels more trustworthy when it explains the verdict with numbers before showing a grid of metrics.
 - Advanced inputs should be available without making the first screen feel like an underwriting spreadsheet.
 - Small assumption transparency belongs near the decision, not hidden after the metrics.
+- Deployed saved deals are not reliably persistent or user-specific on Streamlit Cloud.
+- This is a product trust issue and should be addressed before wider sharing.
 - Next step:
 - Use the app on a real candidate deal and note which explanation, assumption, or threshold still feels unclear.
+- Prioritize persistence transparency and export/import before sharing the deployed app more broadly.
