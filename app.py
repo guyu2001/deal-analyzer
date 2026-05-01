@@ -39,7 +39,7 @@ st.set_page_config(
 
 st.title("AI Real Estate Deal Analyzer")
 st.caption("Get a quick second opinion on whether a rental deal is worth it.")
-st.caption("Start with Quick Analysis: enter price and rent → see verdict instantly.")
+st.caption("Enter price and rent, then review the verdict instantly.")
 
 DEAL_INPUT_DEFAULTS = {
     "purchase_price": 350000.0,
@@ -57,39 +57,17 @@ DEAL_INPUT_DEFAULTS = {
     "rehab_cost": 5000.0,
 }
 
-QUICK_ANALYSIS_ASSUMPTIONS = {
-    "down_payment_pct": 25.0,
-    "interest_rate": 6.5,
-    "loan_term_years": 30,
-    "property_tax_pct": 1.2,
-    "insurance_pct": 0.35,
-    "maintenance_pct": 8.0,
-    "vacancy_pct": 8.0,
-    "property_management_pct": 8.0,
-    "hoa_monthly": 0.0,
-    "closing_costs_pct": 2.0,
-    "rehab_cost": 0.0,
-}
-
 for key, default_value in DEAL_INPUT_DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = default_value
-if "analysis_mode" not in st.session_state:
-    st.session_state.analysis_mode = "Quick Analysis"
-if "analysis_mode_selector" not in st.session_state:
-    st.session_state.analysis_mode_selector = st.session_state.analysis_mode
 if "deal_name" not in st.session_state:
     st.session_state.deal_name = "Deal 1"
-if "quick_purchase_price" not in st.session_state:
-    st.session_state.quick_purchase_price = st.session_state.purchase_price
-if "quick_monthly_rent" not in st.session_state:
-    st.session_state.quick_monthly_rent = st.session_state.monthly_rent
-if "quick_purchase_price_text" not in st.session_state:
-    st.session_state.quick_purchase_price_text = (
-        f"{st.session_state.quick_purchase_price:,.0f}"
+if "purchase_price_text" not in st.session_state:
+    st.session_state.purchase_price_text = (
+        f"{st.session_state.purchase_price:,.0f}"
     )
-if "quick_monthly_rent_text" not in st.session_state:
-    st.session_state.quick_monthly_rent_text = f"{st.session_state.quick_monthly_rent:,.0f}"
+if "monthly_rent_text" not in st.session_state:
+    st.session_state.monthly_rent_text = f"{st.session_state.monthly_rent:,.0f}"
 if "deal_storage_message" not in st.session_state:
     st.session_state.deal_storage_message = ""
 if "ai_analysis" not in st.session_state:
@@ -128,32 +106,6 @@ def get_feedback_url() -> str:
 
 
 def build_current_deal() -> DealInput:
-    if st.session_state.analysis_mode == "Quick Analysis":
-        purchase_price = st.session_state.quick_purchase_price
-        return DealInput(
-            purchase_price=purchase_price,
-            monthly_rent=st.session_state.quick_monthly_rent,
-            down_payment_pct=QUICK_ANALYSIS_ASSUMPTIONS["down_payment_pct"],
-            interest_rate=QUICK_ANALYSIS_ASSUMPTIONS["interest_rate"],
-            loan_term_years=int(QUICK_ANALYSIS_ASSUMPTIONS["loan_term_years"]),
-            property_tax_annual=(
-                purchase_price * QUICK_ANALYSIS_ASSUMPTIONS["property_tax_pct"] / 100
-            ),
-            insurance_annual=(
-                purchase_price * QUICK_ANALYSIS_ASSUMPTIONS["insurance_pct"] / 100
-            ),
-            maintenance_pct=QUICK_ANALYSIS_ASSUMPTIONS["maintenance_pct"],
-            vacancy_pct=QUICK_ANALYSIS_ASSUMPTIONS["vacancy_pct"],
-            property_management_pct=QUICK_ANALYSIS_ASSUMPTIONS[
-                "property_management_pct"
-            ],
-            hoa_monthly=QUICK_ANALYSIS_ASSUMPTIONS["hoa_monthly"],
-            closing_costs=(
-                purchase_price * QUICK_ANALYSIS_ASSUMPTIONS["closing_costs_pct"] / 100
-            ),
-            rehab_cost=QUICK_ANALYSIS_ASSUMPTIONS["rehab_cost"],
-        )
-
     return DealInput(
         purchase_price=st.session_state.purchase_price,
         monthly_rent=st.session_state.monthly_rent,
@@ -175,12 +127,8 @@ def load_deal_into_session(deal_name: str) -> None:
     loaded_deal = load_deal(deal_name)
     for key in DEAL_INPUT_DEFAULTS:
         st.session_state[key] = loaded_deal[key]
-    st.session_state.analysis_mode = "Full Analysis"
-    st.session_state.analysis_mode_selector = "Full Analysis"
-    st.session_state.quick_purchase_price = loaded_deal["purchase_price"]
-    st.session_state.quick_monthly_rent = loaded_deal["monthly_rent"]
-    st.session_state.quick_purchase_price_text = f"{loaded_deal['purchase_price']:,.0f}"
-    st.session_state.quick_monthly_rent_text = f"{loaded_deal['monthly_rent']:,.0f}"
+    st.session_state.purchase_price_text = f"{loaded_deal['purchase_price']:,.0f}"
+    st.session_state.monthly_rent_text = f"{loaded_deal['monthly_rent']:,.0f}"
     st.session_state.deal_name = deal_name
     st.session_state.deal_storage_message = f"Loaded deal: {deal_name}."
 
@@ -537,192 +485,126 @@ with analyze_tab:
         st.markdown("**Deal basics**")
         st.text_input("Deal Name", key="deal_name")
 
-        if st.session_state.analysis_mode_selector == "Quick Analysis":
-            quick_col1, quick_col2 = st.columns(2)
-            with quick_col1:
-                st.text_input(
-                    "Purchase Price ($)",
-                    key="quick_purchase_price_text",
-                    placeholder="750,000",
-                    help="You can type commas, like 750,000 or 1,000,000.",
-                )
-                st.caption("Example: 750,000")
-            with quick_col2:
-                st.text_input(
-                    "Monthly Rent ($)",
-                    key="quick_monthly_rent_text",
-                    placeholder="2,500",
-                    help="You can type commas, like 2,500.",
-                )
-                st.caption("Example: 2,500")
-
-            quick_input_errors = []
-            try:
-                parsed_purchase_price = parse_dollar_input(
-                    st.session_state.quick_purchase_price_text
-                )
-            except ValueError as exc:
-                quick_input_errors.append(f"Purchase Price: {exc}")
-            else:
-                if parsed_purchase_price is not None:
-                    st.session_state.quick_purchase_price = parsed_purchase_price
-
-            try:
-                parsed_monthly_rent = parse_dollar_input(
-                    st.session_state.quick_monthly_rent_text
-                )
-            except ValueError as exc:
-                quick_input_errors.append(f"Monthly Rent: {exc}")
-            else:
-                if parsed_monthly_rent is not None:
-                    st.session_state.quick_monthly_rent = parsed_monthly_rent
-
-            for quick_input_error in quick_input_errors:
-                st.error(quick_input_error)
-
-        mode_col, mode_note_col = st.columns([2, 1])
-        with mode_col:
-            st.session_state.analysis_mode = st.segmented_control(
-                "Analysis Mode",
-                options=["Quick Analysis", "Full Analysis"],
-                key="analysis_mode_selector",
+        primary_col1, primary_col2 = st.columns(2)
+        with primary_col1:
+            st.text_input(
+                "Purchase Price ($)",
+                key="purchase_price_text",
+                placeholder="750,000",
+                help="You can type commas, like 750,000 or 1,000,000.",
             )
-        with mode_note_col:
-            st.caption("Quick Analysis is the fastest first pass.")
+            st.caption("Example: 750,000")
+        with primary_col2:
+            st.text_input(
+                "Monthly Rent ($)",
+                key="monthly_rent_text",
+                placeholder="2,500",
+                help="You can type commas, like 2,500.",
+            )
+            st.caption("Example: 2,500")
 
-        if st.session_state.analysis_mode == "Quick Analysis":
-            with st.expander("Quick assumptions"):
-                assumption_col1, assumption_col2, assumption_col3 = st.columns(3)
-                with assumption_col1:
-                    st.markdown(
-                        f"- Vacancy: {QUICK_ANALYSIS_ASSUMPTIONS['vacancy_pct']:.1f}%"
-                    )
-                    st.markdown(
-                        f"- Maintenance: {QUICK_ANALYSIS_ASSUMPTIONS['maintenance_pct']:.1f}%"
-                    )
-                    st.markdown(
-                        "- Management: "
-                        f"{QUICK_ANALYSIS_ASSUMPTIONS['property_management_pct']:.1f}%"
-                    )
-                with assumption_col2:
-                    st.markdown(
-                        "- Property tax: "
-                        f"{QUICK_ANALYSIS_ASSUMPTIONS['property_tax_pct']:.2f}% of price"
-                    )
-                    st.markdown(
-                        "- Insurance: "
-                        f"{QUICK_ANALYSIS_ASSUMPTIONS['insurance_pct']:.2f}% of price"
-                    )
-                    st.markdown(
-                        "- Closing costs: "
-                        f"{QUICK_ANALYSIS_ASSUMPTIONS['closing_costs_pct']:.1f}% of price"
-                    )
-                with assumption_col3:
-                    st.markdown(
-                        "- Down payment: "
-                        f"{QUICK_ANALYSIS_ASSUMPTIONS['down_payment_pct']:.1f}%"
-                    )
-                    st.markdown(
-                        f"- Interest rate: {QUICK_ANALYSIS_ASSUMPTIONS['interest_rate']:.2f}%"
-                    )
-                    st.markdown(
-                        f"- Loan term: {QUICK_ANALYSIS_ASSUMPTIONS['loan_term_years']} years"
-                    )
+        input_errors = []
+        try:
+            parsed_purchase_price = parse_dollar_input(
+                st.session_state.purchase_price_text
+            )
+        except ValueError as exc:
+            input_errors.append(f"Purchase Price: {exc}")
         else:
-            full_price_col, full_rent_col = st.columns(2)
-            with full_price_col:
+            if parsed_purchase_price is not None:
+                st.session_state.purchase_price = parsed_purchase_price
+
+        try:
+            parsed_monthly_rent = parse_dollar_input(
+                st.session_state.monthly_rent_text
+            )
+        except ValueError as exc:
+            input_errors.append(f"Monthly Rent: {exc}")
+        else:
+            if parsed_monthly_rent is not None:
+                st.session_state.monthly_rent = parsed_monthly_rent
+
+        for input_error in input_errors:
+            st.error(input_error)
+
+        with st.expander("Advanced assumptions"):
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
                 st.number_input(
-                    "Purchase Price ($)",
+                    "Down Payment %",
                     min_value=0.0,
-                    step=10000.0,
-                    key="purchase_price",
+                    max_value=100.0,
+                    step=1.0,
+                    key="down_payment_pct",
                 )
-            with full_rent_col:
                 st.number_input(
-                    "Monthly Rent ($)",
+                    "Interest Rate %",
+                    min_value=0.0,
+                    step=0.1,
+                    key="interest_rate",
+                )
+                st.number_input(
+                    "Loan Term (Years)",
+                    min_value=1,
+                    step=1,
+                    key="loan_term_years",
+                )
+
+            with col2:
+                st.number_input(
+                    "Property Tax (Annual)",
                     min_value=0.0,
                     step=100.0,
-                    key="monthly_rent",
+                    key="property_tax_annual",
+                )
+                st.number_input(
+                    "Insurance (Annual)",
+                    min_value=0.0,
+                    step=100.0,
+                    key="insurance_annual",
+                )
+                st.number_input(
+                    "Maintenance %",
+                    min_value=0.0,
+                    max_value=100.0,
+                    step=1.0,
+                    key="maintenance_pct",
                 )
 
-            with st.expander("Full Analysis Inputs"):
-                col1, col2, col3 = st.columns(3)
-
-                with col1:
-                    st.number_input(
-                        "Down Payment %",
-                        min_value=0.0,
-                        max_value=100.0,
-                        step=1.0,
-                        key="down_payment_pct",
-                    )
-                    st.number_input(
-                        "Interest Rate %",
-                        min_value=0.0,
-                        step=0.1,
-                        key="interest_rate",
-                    )
-                    st.number_input(
-                        "Loan Term (Years)",
-                        min_value=1,
-                        step=1,
-                        key="loan_term_years",
-                    )
-
-                with col2:
-                    st.number_input(
-                        "Property Tax (Annual)",
-                        min_value=0.0,
-                        step=100.0,
-                        key="property_tax_annual",
-                    )
-                    st.number_input(
-                        "Insurance (Annual)",
-                        min_value=0.0,
-                        step=100.0,
-                        key="insurance_annual",
-                    )
-                    st.number_input(
-                        "Maintenance %",
-                        min_value=0.0,
-                        max_value=100.0,
-                        step=1.0,
-                        key="maintenance_pct",
-                    )
-
-                with col3:
-                    st.number_input(
-                        "Vacancy %",
-                        min_value=0.0,
-                        max_value=100.0,
-                        step=1.0,
-                        key="vacancy_pct",
-                    )
-                    st.number_input(
-                        "Property Management %",
-                        min_value=0.0,
-                        max_value=100.0,
-                        step=1.0,
-                        key="property_management_pct",
-                    )
-                    st.number_input(
-                        "HOA (Monthly)",
-                        min_value=0.0,
-                        step=25.0,
-                        key="hoa_monthly",
-                    )
-                    st.number_input(
-                        "Closing Costs",
-                        min_value=0.0,
-                        step=500.0,
-                        key="closing_costs",
-                    )
-                    st.number_input(
-                        "Rehab Cost",
-                        min_value=0.0,
-                        step=500.0,
-                        key="rehab_cost",
-                    )
+            with col3:
+                st.number_input(
+                    "Vacancy %",
+                    min_value=0.0,
+                    max_value=100.0,
+                    step=1.0,
+                    key="vacancy_pct",
+                )
+                st.number_input(
+                    "Property Management %",
+                    min_value=0.0,
+                    max_value=100.0,
+                    step=1.0,
+                    key="property_management_pct",
+                )
+                st.number_input(
+                    "HOA (Monthly)",
+                    min_value=0.0,
+                    step=25.0,
+                    key="hoa_monthly",
+                )
+                st.number_input(
+                    "Closing Costs",
+                    min_value=0.0,
+                    step=500.0,
+                    key="closing_costs",
+                )
+                st.number_input(
+                    "Rehab Cost",
+                    min_value=0.0,
+                    step=500.0,
+                    key="rehab_cost",
+                )
 
         if st.session_state.deal_storage_message:
             show_deal_storage_message(st.session_state.deal_storage_message)
