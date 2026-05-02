@@ -20,8 +20,10 @@ A personal rental property analysis tool built with Streamlit and OpenAI.
 - Ask AI how to improve a weak or borderline deal
 - Test scenario tweaks for rent, purchase price, and interest rate
 - Compare original vs scenario metrics with deltas
-- Save and load deal inputs locally from `saved_deals/`
-- Compare two saved deals side-by-side
+- Export and import deal inputs as JSON files
+- Keep deal data private to the user's browser/session and downloaded files
+
+Compare and Portfolio are temporarily disabled while private file-based versions are redesigned.
 
 ## Setup
 
@@ -62,20 +64,25 @@ If no key is configured, the app keeps working and shows a friendly message when
 
 - AI features are limited to 5 uses per browser session by default
 - Both `Run AI Analysis` and `What Would Make This Work?` count toward the same session limit
-- Non-AI calculations, summaries, saved deals, scenarios, and comparisons are not limited
-- Saved deals store only deal inputs, not API keys, secrets, or AI outputs
+- Non-AI calculations, summaries, exported deal files, and scenarios are not limited
+- Exported deal files store only deal inputs, not API keys, secrets, or AI outputs
 
-## Local Deal Storage
+## Deal Files
 
-- Use the `Save / Load Deals` section in the app to save the current deal inputs locally
-- Saved deals are stored as one JSON file per deal in `saved_deals/`
-- Only main deal inputs are stored; AI outputs, API keys, and secrets are not saved
+- Use the `Save / Import Deal File` section in the app to export the current deal inputs as a JSON file.
+- Import only JSON deal files exported from this app.
+- The app does not store user deals on the server.
+- Compare and Portfolio are temporarily disabled while private file-based versions are redesigned.
+
+## Streamlit Community Cloud
+
+If hosted on Streamlit Community Cloud, the app may sleep after inactivity. The first load may take a moment while the app wakes up.
 
 ## Files
 
 - `app.py` - Streamlit UI  
-- `deal_storage.py` - local JSON save/load helpers  
-- `deal_comparison.py` - saved-deal comparison helpers  
+- `deal_storage.py` - legacy local JSON save/load helpers  
+- `deal_comparison.py` - deal comparison helpers  
 - `scenario_analysis.py` - scenario comparison and change-summary helpers  
 - `calculator.py` - financial calculations and scoring  
 - `ai_analysis.py` - OpenAI call  
