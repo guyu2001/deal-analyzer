@@ -157,6 +157,34 @@ def calculate_rehab_risk(deal: DealInput) -> float | None:
     return 0.0
 
 
+def build_rent_to_price_hint(deal: DealInput) -> str | None:
+    if deal.purchase_price <= 0:
+        return None
+
+    rent_to_price_ratio = deal.monthly_rent / deal.purchase_price
+    ratio_text = f"{rent_to_price_ratio * 100:.2f}%"
+
+    if rent_to_price_ratio < 0.005:
+        return (
+            f"Rent-to-price ratio is {ratio_text}; rent appears low relative to "
+            "price (below ~0.5% rule), while typical rentals are ~0.8%-1.2%."
+        )
+    if rent_to_price_ratio < 0.008:
+        return (
+            f"Rent-to-price ratio is {ratio_text}; rent is somewhat low relative "
+            "to price, and many rentals fall closer to ~0.8%-1.2%."
+        )
+    if rent_to_price_ratio <= 0.012:
+        return (
+            f"Rent-to-price ratio is {ratio_text}; this is within a typical "
+            "range for rentals."
+        )
+    return (
+        f"Rent-to-price ratio is {ratio_text}; this is strong compared to "
+        "typical rental ranges."
+    )
+
+
 def calculate_target_rent_for_cash_flow(
     deal: DealInput,
     target_cash_flow: float,
@@ -639,6 +667,7 @@ with analyze_tab:
 
         st.markdown(f"## {verdict_cue} {verdict}")
         st.write(build_verdict_explanation(metrics, scoring_result))
+        rent_to_price_hint = build_rent_to_price_hint(deal)
         st.markdown(
             "**Assumptions used:** "
             f"{deal.down_payment_pct:.0f}% down · "
@@ -649,6 +678,8 @@ with analyze_tab:
         )
 
         reason_items = []
+        if rent_to_price_hint:
+            reason_items.append((rent_to_price_hint, note_kind(rent_to_price_hint)))
         if strengths:
             reason_items.append((strengths[0], "positive"))
         if concerns:
@@ -663,7 +694,7 @@ with analyze_tab:
             reason_items.append((concern, note_kind(concern)))
 
         if reason_items:
-            st.caption("Key reasons")
+            st.markdown("**Why this verdict:**")
             for reason, reason_kind in reason_items:
                 write_cued_note(reason, reason_kind)
 
