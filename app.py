@@ -1,8 +1,8 @@
+import json
 import math
 import os
 import streamlit as st
-import time
-from dataclasses import replace
+from dataclasses import asdict, replace
 
 from calculator import (
     DEFAULT_SCORING_CONFIG,
@@ -12,13 +12,6 @@ from calculator import (
     score_deal,
     score_deal_detailed,
 )
-from deal_comparison import (
-    build_deal_comparison,
-    compare_grades,
-    compare_values,
-    deal_input_from_dict,
-)
-from deal_storage import list_saved_deals, load_deal, save_deal
 from models import DealInput
 from scenario_analysis import build_scenario_change_messages, build_scenario_comparison_rows
 from utils import format_currency, format_percent, parse_dollar_input
@@ -68,22 +61,16 @@ if "purchase_price_text" not in st.session_state:
     )
 if "monthly_rent_text" not in st.session_state:
     st.session_state.monthly_rent_text = f"{st.session_state.monthly_rent:,.0f}"
-if "deal_storage_message" not in st.session_state:
-    st.session_state.deal_storage_message = ""
+if "deal_file_message" not in st.session_state:
+    st.session_state.deal_file_message = ""
+if "last_imported_deal_file" not in st.session_state:
+    st.session_state.last_imported_deal_file = ""
 if "ai_analysis" not in st.session_state:
     st.session_state.ai_analysis = ""
 if "what_would_make_this_work" not in st.session_state:
     st.session_state.what_would_make_this_work = ""
-if "loaded_query_deal" not in st.session_state:
-    st.session_state.loaded_query_deal = ""
 if "active_tab" not in st.session_state:
     st.session_state.active_tab = "Analyze"
-if "pending_saved_deal" not in st.session_state:
-    st.session_state.pending_saved_deal = ""
-if "pending_portfolio_deal" not in st.session_state:
-    st.session_state.pending_portfolio_deal = ""
-if "last_opened_portfolio_deal" not in st.session_state:
-    st.session_state.last_opened_portfolio_deal = ""
 if "feedback_rating" not in st.session_state:
     st.session_state.feedback_rating = None
 if "feedback_note" not in st.session_state:
@@ -123,18 +110,52 @@ def build_current_deal() -> DealInput:
     )
 
 
-def load_deal_into_session(deal_name: str) -> None:
-    loaded_deal = load_deal(deal_name)
-    for key in DEAL_INPUT_DEFAULTS:
-        st.session_state[key] = loaded_deal[key]
-    st.session_state.purchase_price_text = f"{loaded_deal['purchase_price']:,.0f}"
-    st.session_state.monthly_rent_text = f"{loaded_deal['monthly_rent']:,.0f}"
-    st.session_state.deal_name = deal_name
-    st.session_state.deal_storage_message = f"Loaded deal: {deal_name}."
-
-
 def current_deal_name() -> str:
     return st.session_state.deal_name.strip() or "Deal 1"
+
+
+def deal_export_payload(deal_name: str, deal: DealInput) -> dict[str, float | int | str]:
+    return {"deal_name": deal_name, **asdict(deal)}
+
+
+def deal_export_json(deal_name: str, deal: DealInput) -> str:
+    return json.dumps(deal_export_payload(deal_name, deal), indent=2)
+
+
+def import_deal_payload(
+    payload: dict,
+    fallback_deal_name: str,
+) -> tuple[str, list[str]]:
+    errors = []
+    missing_fields = [
+        field_name for field_name in DEAL_INPUT_DEFAULTS if field_name not in payload
+    ]
+    if missing_fields:
+        errors.append(
+            "Missing required deal fields: " + ", ".join(missing_fields) + "."
+        )
+        return "", errors
+
+    for key in DEAL_INPUT_DEFAULTS:
+        value = payload[key]
+        try:
+            if key == "loan_term_years":
+                st.session_state[key] = int(value)
+            else:
+                st.session_state[key] = float(value)
+        except (TypeError, ValueError):
+            errors.append(f"{key} must be a number.")
+
+    if errors:
+        return "", errors
+
+    imported_deal_name = str(payload.get("deal_name") or fallback_deal_name).strip()
+    st.session_state.deal_name = imported_deal_name or "Imported Deal"
+    st.session_state.purchase_price_text = (
+        f"{st.session_state.purchase_price:,.0f}"
+    )
+    st.session_state.monthly_rent_text = f"{st.session_state.monthly_rent:,.0f}"
+    return st.session_state.deal_name, []
 
 
 def format_optional_currency(value: float | None) -> str:
@@ -271,17 +292,6 @@ def build_confidence_notes(scoring_result) -> list[str]:
     return notes[:3]
 
 
-def show_deal_storage_message(message: str) -> None:
-    if hasattr(st, "toast"):
-        st.toast(message)
-        return
-
-    placeholder = st.empty()
-    placeholder.info(message)
-    time.sleep(2)
-    placeholder.empty()
-
-
 def grade_caption(grade_value: str) -> str:
     captions = {
         "A": "✓ Strong profile",
@@ -407,37 +417,6 @@ def write_cued_note(note: str, kind: str = "neutral") -> None:
     st.markdown(f"{note_prefix(kind)} {note}")
 
 
-def format_comparison_signal(signal: str) -> str:
-    if signal == "Better":
-        return "✓ Better"
-    if signal == "Tie":
-        return "- Tie"
-    return signal
-
-
-def build_portfolio_rows(saved_deal_names: list[str]) -> list[dict]:
-    rows = []
-
-    for saved_deal_name in saved_deal_names:
-        saved_deal = deal_input_from_dict(load_deal(saved_deal_name))
-        saved_metrics = calculate_metrics(saved_deal)
-        saved_scoring = score_deal_detailed(saved_metrics, saved_deal)
-        rows.append(
-            {
-                "Deal": saved_deal_name,
-                "Grade": saved_scoring.grade,
-                "Verdict": saved_scoring.verdict,
-                "Confidence": saved_scoring.confidence,
-                "Monthly Cash Flow": saved_metrics.monthly_cash_flow,
-                "Cash-on-Cash Return": saved_metrics.cash_on_cash_return * 100,
-                "Cap Rate": saved_metrics.cap_rate * 100,
-                "DSCR": saved_metrics.dscr,
-            }
-        )
-
-    return rows
-
-
 def build_shareable_summary(
     deal_name: str,
     deal: DealInput,
@@ -472,33 +451,6 @@ def build_shareable_summary(
         ]
     )
 
-
-pending_deal_name = (
-    st.session_state.pending_saved_deal
-    or st.session_state.pending_portfolio_deal
-)
-if pending_deal_name:
-    try:
-        load_deal_into_session(pending_deal_name)
-    except FileNotFoundError:
-        st.session_state.deal_storage_message = (
-            f"Saved deal not found: {pending_deal_name}."
-        )
-    st.session_state.pending_saved_deal = ""
-    st.session_state.pending_portfolio_deal = ""
-    st.session_state.active_tab = "Analyze"
-    st.query_params.clear()
-
-query_deal_name = st.query_params.get("load_deal")
-if query_deal_name and query_deal_name != st.session_state.loaded_query_deal:
-    try:
-        load_deal_into_session(query_deal_name)
-        st.session_state.loaded_query_deal = query_deal_name
-        st.session_state.active_tab = "Analyze"
-    except FileNotFoundError:
-        st.session_state.deal_storage_message = (
-            f"Saved deal not found: {query_deal_name}."
-        )
 
 analyze_tab, compare_tab, portfolio_tab = st.tabs(
     ["Analyze", "Compare", "Portfolio"],
@@ -634,14 +586,64 @@ with analyze_tab:
                     key="rehab_cost",
                 )
 
-        if st.session_state.deal_storage_message:
-            show_deal_storage_message(st.session_state.deal_storage_message)
-            st.session_state.deal_storage_message = ""
+        with st.expander("Save / Import Deal File"):
+            st.info(
+                "Deals are saved only as files you download. "
+                "This app does not store your deals."
+            )
 
-        if st.button("Save current deal"):
-            saved_path = save_deal(current_deal_name(), build_current_deal())
-            st.session_state.deal_storage_message = f"Saved deal to {saved_path.name}."
-            st.rerun()
+            uploaded_deal = st.file_uploader(
+                "Import Deal",
+                type="json",
+                accept_multiple_files=False,
+                help="Import a JSON deal file exported from this app.",
+            )
+            if uploaded_deal is not None:
+                uploaded_signature = f"{uploaded_deal.name}:{uploaded_deal.size}"
+            else:
+                uploaded_signature = ""
+                st.session_state.last_imported_deal_file = ""
+
+            if (
+                uploaded_deal is not None
+                and uploaded_signature != st.session_state.last_imported_deal_file
+            ):
+                try:
+                    imported_payload = json.load(uploaded_deal)
+                    if not isinstance(imported_payload, dict):
+                        st.session_state.deal_file_message = (
+                            "Import failed: deal JSON must be an object."
+                        )
+                    else:
+                        fallback_name = uploaded_deal.name.rsplit(".", 1)[0]
+                        imported_name, import_errors = import_deal_payload(
+                            imported_payload,
+                            fallback_name,
+                        )
+                        if import_errors:
+                            st.session_state.deal_file_message = (
+                                "Import failed: " + " ".join(import_errors)
+                            )
+                        else:
+                            st.session_state.deal_file_message = (
+                                f"Imported deal: {imported_name}."
+                            )
+                            st.session_state.last_imported_deal_file = uploaded_signature
+                except json.JSONDecodeError:
+                    st.session_state.deal_file_message = (
+                        "Import failed: the uploaded file is not valid JSON."
+                    )
+
+            if st.session_state.deal_file_message:
+                st.info(st.session_state.deal_file_message)
+                st.session_state.deal_file_message = ""
+
+            st.download_button(
+                "Export Deal",
+                data=deal_export_json(current_deal_name(), build_current_deal()),
+                file_name=f"{current_deal_name().replace(' ', '_')}.json",
+                mime="application/json",
+            )
 
 deal = build_current_deal()
 metrics = calculate_metrics(deal)
@@ -652,7 +654,6 @@ confidence = scoring_result.confidence
 strengths = scoring_result.strengths
 concerns = scoring_result.concerns
 rehab_risk = calculate_rehab_risk(deal)
-saved_deal_options = list_saved_deals()
 
 with analyze_tab:
     with st.container(border=True):
@@ -870,167 +871,17 @@ with analyze_tab:
 
 with compare_tab:
     st.header("Deal Comparison")
-
-    compare_col1, compare_col2 = st.columns(2)
-
-    with compare_col1:
-        comparison_deal_a = st.selectbox(
-            "Deal A",
-            options=saved_deal_options,
-            index=None,
-            placeholder="Select Deal A",
-        )
-
-    with compare_col2:
-        comparison_deal_b = st.selectbox(
-            "Deal B",
-            options=saved_deal_options,
-            index=None,
-            placeholder="Select Deal B",
-        )
-
-    if comparison_deal_a and comparison_deal_b:
-        try:
-            comparison = build_deal_comparison(
-                load_deal(comparison_deal_a),
-                load_deal(comparison_deal_b),
-            )
-
-            st.caption("Compare saved deals side-by-side.")
-
-            compare_header1, compare_header2, compare_header3 = st.columns([2, 2, 2])
-            compare_header1.markdown("**Metric**")
-            compare_header2.markdown(f"**{comparison_deal_a}**")
-            compare_header3.markdown(f"**{comparison_deal_b}**")
-
-            comparison_rows = [
-                (
-                    "Purchase Price",
-                    comparison["deal_a"].purchase_price,
-                    comparison["deal_b"].purchase_price,
-                    format_currency,
-                    False,
-                ),
-                (
-                    "Monthly Rent",
-                    comparison["deal_a"].monthly_rent,
-                    comparison["deal_b"].monthly_rent,
-                    format_currency,
-                    True,
-                ),
-                (
-                    "Monthly Cash Flow",
-                    comparison["metrics_a"].monthly_cash_flow,
-                    comparison["metrics_b"].monthly_cash_flow,
-                    format_currency,
-                    True,
-                ),
-                (
-                    "Cap Rate",
-                    comparison["metrics_a"].cap_rate,
-                    comparison["metrics_b"].cap_rate,
-                    format_percent,
-                    True,
-                ),
-                (
-                    "Cash-on-Cash Return",
-                    comparison["metrics_a"].cash_on_cash_return,
-                    comparison["metrics_b"].cash_on_cash_return,
-                    format_percent,
-                    True,
-                ),
-                (
-                    "DSCR",
-                    comparison["metrics_a"].dscr,
-                    comparison["metrics_b"].dscr,
-                    lambda value: f"{value:.2f}",
-                    True,
-                ),
-                (
-                    "Total Cash Invested",
-                    comparison["metrics_a"].total_cash_invested,
-                    comparison["metrics_b"].total_cash_invested,
-                    format_currency,
-                    False,
-                ),
-            ]
-
-            for label, value_a, value_b, formatter, higher_is_better in comparison_rows:
-                better_a, better_b = compare_values(
-                    value_a,
-                    value_b,
-                    higher_is_better=higher_is_better,
-                )
-                row1, row2, row3 = st.columns([2, 2, 2])
-                row1.write(label)
-                row2.write(f"{formatter(value_a)} {format_comparison_signal(better_a)}".strip())
-                row3.write(f"{formatter(value_b)} {format_comparison_signal(better_b)}".strip())
-
-            grade_better_a, grade_better_b = compare_grades(
-                comparison["grade_a"],
-                comparison["grade_b"],
-            )
-
-            grade_row1, grade_row2, grade_row3 = st.columns([2, 2, 2])
-            grade_row1.write("Grade / Verdict")
-            grade_row2.write(
-                f'{comparison["grade_a"]} / {comparison["verdict_a"]} {format_comparison_signal(grade_better_a)}'.strip()
-            )
-            grade_row3.write(
-                f'{comparison["grade_b"]} / {comparison["verdict_b"]} {format_comparison_signal(grade_better_b)}'.strip()
-            )
-        except FileNotFoundError:
-            st.error("One of the selected saved deals could not be found.")
-    else:
-        st.caption("Select two saved deals to compare them side-by-side.")
+    st.info(
+        "Deal comparison is temporarily disabled while private file-based "
+        "comparison is being redesigned."
+    )
 
 with portfolio_tab:
     st.header("Portfolio Ranking")
-
-    if saved_deal_options:
-        try:
-            portfolio_rows = build_portfolio_rows(saved_deal_options)
-            st.caption("Select a row to load it in Analyze.")
-            portfolio_selection = st.dataframe(
-                portfolio_rows,
-                column_config={
-                    "Deal": st.column_config.TextColumn("Deal"),
-                    "Monthly Cash Flow": st.column_config.NumberColumn(
-                        "Monthly Cash Flow",
-                        format="$%.2f",
-                    ),
-                    "Cash-on-Cash Return": st.column_config.NumberColumn(
-                        "Cash-on-Cash Return",
-                        format="%.2f%%",
-                    ),
-                    "Cap Rate": st.column_config.NumberColumn(
-                        "Cap Rate",
-                        format="%.2f%%",
-                    ),
-                    "DSCR": st.column_config.NumberColumn("DSCR", format="%.2f"),
-                },
-                hide_index=True,
-                width="stretch",
-                key="portfolio_ranking_table",
-                on_select="rerun",
-                selection_mode="single-row",
-            )
-
-            selected_rows = portfolio_selection.selection.rows
-            if selected_rows:
-                selected_deal_name = portfolio_rows[selected_rows[0]]["Deal"]
-                if selected_deal_name != st.session_state.last_opened_portfolio_deal:
-                    st.session_state.pending_portfolio_deal = selected_deal_name
-                    st.session_state.last_opened_portfolio_deal = selected_deal_name
-                    st.rerun()
-
-            st.caption("Saved deals use the current scoring and metric rules.")
-        except FileNotFoundError:
-            st.error("A saved deal could not be found while building the portfolio ranking.")
-        except KeyError:
-            st.error("A saved deal is missing required fields and could not be ranked.")
-    else:
-        st.caption("Save deals to build a portfolio ranking.")
+    st.info(
+        "Portfolio ranking is temporarily disabled while private file-based "
+        "portfolios are being redesigned."
+    )
 
 with analyze_tab:
     with st.expander("Shareable Summary"):
