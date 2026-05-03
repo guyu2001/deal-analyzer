@@ -16,7 +16,7 @@ from models import DealInput
 from scenario_analysis import build_scenario_change_messages, build_scenario_comparison_rows
 from utils import format_currency, format_percent, parse_dollar_input
 st.set_page_config(
-    page_title="AI Real Estate Deal Analyzer",
+    page_title="Rental Deal Analyzer",
     page_icon="🏠",
     layout="wide",
 )
@@ -73,7 +73,7 @@ if pending_deal_import:
     )
     st.session_state.monthly_rent_text = f"{st.session_state.monthly_rent:,.0f}"
 
-st.title("AI Real Estate Deal Analyzer")
+st.title("Rental Deal Analyzer")
 st.caption("Get a quick second opinion on whether a rental deal is worth it.")
 st.caption("Enter price and rent, then review the verdict instantly.")
 
