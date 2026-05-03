@@ -21,10 +21,6 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("AI Real Estate Deal Analyzer")
-st.caption("Get a quick second opinion on whether a rental deal is worth it.")
-st.caption("Enter price and rent, then review the verdict instantly.")
-
 DEAL_INPUT_DEFAULTS = {
     "purchase_price": 350000.0,
     "monthly_rent": 2500.0,
@@ -40,6 +36,7 @@ DEAL_INPUT_DEFAULTS = {
     "closing_costs": 7000.0,
     "rehab_cost": 5000.0,
 }
+PENDING_DEAL_IMPORT_KEY = "pending_deal_import"
 
 for key, default_value in DEAL_INPUT_DEFAULTS.items():
     if key not in st.session_state:
@@ -54,12 +51,38 @@ if "monthly_rent_text" not in st.session_state:
     st.session_state.monthly_rent_text = f"{st.session_state.monthly_rent:,.0f}"
 if "deal_file_message" not in st.session_state:
     st.session_state.deal_file_message = ""
+if "deal_import_toast" not in st.session_state:
+    st.session_state.deal_import_toast = ""
 if "last_imported_deal_file" not in st.session_state:
     st.session_state.last_imported_deal_file = ""
+if "import_uploader_version" not in st.session_state:
+    st.session_state.import_uploader_version = 0
 if "active_tab" not in st.session_state:
     st.session_state.active_tab = "Analyze"
 if "feedback_rating" not in st.session_state:
     st.session_state.feedback_rating = None
+
+pending_deal_import = st.session_state.pop(PENDING_DEAL_IMPORT_KEY, None)
+if pending_deal_import:
+    imported_values = pending_deal_import["values"]
+    for key in DEAL_INPUT_DEFAULTS:
+        st.session_state[key] = imported_values[key]
+    st.session_state.deal_name = pending_deal_import["deal_name"]
+    st.session_state.purchase_price_text = (
+        f"{st.session_state.purchase_price:,.0f}"
+    )
+    st.session_state.monthly_rent_text = f"{st.session_state.monthly_rent:,.0f}"
+
+st.title("AI Real Estate Deal Analyzer")
+st.caption("Get a quick second opinion on whether a rental deal is worth it.")
+st.caption("Enter price and rent, then review the verdict instantly.")
+
+if st.session_state.deal_import_toast:
+    if hasattr(st, "toast"):
+        st.toast(st.session_state.deal_import_toast)
+    else:
+        st.caption(st.session_state.deal_import_toast)
+    st.session_state.deal_import_toast = ""
 
 
 def get_feedback_url() -> str:
@@ -107,7 +130,7 @@ def deal_export_json(deal_name: str, deal: DealInput) -> str:
 def import_deal_payload(
     payload: dict,
     fallback_deal_name: str,
-) -> tuple[str, list[str]]:
+) -> tuple[str, dict[str, float | int], list[str]]:
     errors = []
     missing_fields = [
         field_name for field_name in DEAL_INPUT_DEFAULTS if field_name not in payload
@@ -116,28 +139,24 @@ def import_deal_payload(
         errors.append(
             "Missing required deal fields: " + ", ".join(missing_fields) + "."
         )
-        return "", errors
+        return "", {}, errors
 
+    imported_values = {}
     for key in DEAL_INPUT_DEFAULTS:
         value = payload[key]
         try:
             if key == "loan_term_years":
-                st.session_state[key] = int(value)
+                imported_values[key] = int(value)
             else:
-                st.session_state[key] = float(value)
+                imported_values[key] = float(value)
         except (TypeError, ValueError):
             errors.append(f"{key} must be a number.")
 
     if errors:
-        return "", errors
+        return "", {}, errors
 
     imported_deal_name = str(payload.get("deal_name") or fallback_deal_name).strip()
-    st.session_state.deal_name = imported_deal_name or "Imported Deal"
-    st.session_state.purchase_price_text = (
-        f"{st.session_state.purchase_price:,.0f}"
-    )
-    st.session_state.monthly_rent_text = f"{st.session_state.monthly_rent:,.0f}"
-    return st.session_state.deal_name, []
+    return imported_deal_name or "Imported Deal", imported_values, []
 
 
 def format_optional_currency(value: float | None) -> str:
@@ -579,6 +598,7 @@ with analyze_tab:
                 type="json",
                 accept_multiple_files=False,
                 help="Import a JSON deal file exported from this app.",
+                key=f"import_deal_uploader_{st.session_state.import_uploader_version}",
             )
             if uploaded_deal is not None:
                 uploaded_signature = f"{uploaded_deal.name}:{uploaded_deal.size}"
@@ -598,7 +618,7 @@ with analyze_tab:
                         )
                     else:
                         fallback_name = uploaded_deal.name.rsplit(".", 1)[0]
-                        imported_name, import_errors = import_deal_payload(
+                        imported_name, imported_values, import_errors = import_deal_payload(
                             imported_payload,
                             fallback_name,
                         )
@@ -607,10 +627,16 @@ with analyze_tab:
                                 "Import failed: " + " ".join(import_errors)
                             )
                         else:
-                            st.session_state.deal_file_message = (
-                                f"Imported deal: {imported_name}."
+                            st.session_state[PENDING_DEAL_IMPORT_KEY] = {
+                                "deal_name": imported_name,
+                                "values": imported_values,
+                            }
+                            st.session_state.deal_import_toast = (
+                                f"Imported deal: {imported_name}"
                             )
                             st.session_state.last_imported_deal_file = uploaded_signature
+                            st.session_state.import_uploader_version += 1
+                            st.rerun()
                 except json.JSONDecodeError:
                     st.session_state.deal_file_message = (
                         "Import failed: the uploaded file is not valid JSON."
