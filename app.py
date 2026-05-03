@@ -15,15 +15,6 @@ from calculator import (
 from models import DealInput
 from scenario_analysis import build_scenario_change_messages, build_scenario_comparison_rows
 from utils import format_currency, format_percent, parse_dollar_input
-from ai_analysis import generate_ai_analysis, generate_what_would_make_this_work
-from ai_usage import (
-    DEFAULT_AI_USAGE_LIMIT,
-    ensure_ai_usage_state,
-    get_ai_usage_count,
-    is_ai_usage_limit_reached,
-    record_ai_usage,
-)
-
 st.set_page_config(
     page_title="AI Real Estate Deal Analyzer",
     page_icon="🏠",
@@ -65,19 +56,10 @@ if "deal_file_message" not in st.session_state:
     st.session_state.deal_file_message = ""
 if "last_imported_deal_file" not in st.session_state:
     st.session_state.last_imported_deal_file = ""
-if "ai_analysis" not in st.session_state:
-    st.session_state.ai_analysis = ""
-if "what_would_make_this_work" not in st.session_state:
-    st.session_state.what_would_make_this_work = ""
 if "active_tab" not in st.session_state:
     st.session_state.active_tab = "Analyze"
 if "feedback_rating" not in st.session_state:
     st.session_state.feedback_rating = None
-if "feedback_note" not in st.session_state:
-    st.session_state.feedback_note = ""
-if "feedback_submitted" not in st.session_state:
-    st.session_state.feedback_submitted = False
-ensure_ai_usage_state(st.session_state)
 
 
 def get_feedback_url() -> str:
@@ -897,85 +879,16 @@ with analyze_tab:
         )
         st.code(shareable_summary, language="text")
 
-    with st.expander("AI Insights"):
-        ai_usage_count = get_ai_usage_count(st.session_state)
-        ai_limit_reached = is_ai_usage_limit_reached(
-            st.session_state,
-            DEFAULT_AI_USAGE_LIMIT,
-        )
-        ai_usage_caption = st.empty()
-        ai_usage_caption.caption(
-            f"AI uses this session: {ai_usage_count} / {DEFAULT_AI_USAGE_LIMIT}"
-        )
-        if ai_limit_reached:
-            st.caption("Session AI limit reached. Non-AI deal analysis still works.")
-
-        ai_col1, ai_col2 = st.columns(2)
-
-        with ai_col1:
-            if st.button("Run AI Analysis", disabled=ai_limit_reached):
-                if not record_ai_usage(st.session_state, DEFAULT_AI_USAGE_LIMIT):
-                    st.info("Session AI limit reached. Non-AI deal analysis still works.")
-                else:
-                    ai_usage_caption.caption(
-                        "AI uses this session: "
-                        f"{get_ai_usage_count(st.session_state)} / {DEFAULT_AI_USAGE_LIMIT}"
-                    )
-                    with st.spinner("Analyzing deal..."):
-                        st.session_state.ai_analysis = generate_ai_analysis(
-                            deal, metrics, verdict, strengths, concerns
-                        )
-
-        with ai_col2:
-            if st.button("What Would Make This Work?", disabled=ai_limit_reached):
-                if not record_ai_usage(st.session_state, DEFAULT_AI_USAGE_LIMIT):
-                    st.info("Session AI limit reached. Non-AI deal analysis still works.")
-                else:
-                    ai_usage_caption.caption(
-                        "AI uses this session: "
-                        f"{get_ai_usage_count(st.session_state)} / {DEFAULT_AI_USAGE_LIMIT}"
-                    )
-                    with st.spinner("Analyzing what would make this deal work..."):
-                        st.session_state.what_would_make_this_work = generate_what_would_make_this_work(
-                            deal,
-                            metrics,
-                            grade,
-                            verdict,
-                            strengths,
-                            concerns,
-                            scenario_deal,
-                            scenario_metrics,
-                            scenario_grade,
-                            scenario_verdict,
-                        )
-
-        if st.session_state.ai_analysis:
-            st.markdown("**AI Analysis**")
-            st.write(st.session_state.ai_analysis)
-
-        if st.session_state.what_would_make_this_work:
-            st.markdown("**What Would Make This Work?**")
-            st.write(st.session_state.what_would_make_this_work)
-
-    with st.expander("Feedback"):
-        feedback_url = get_feedback_url()
-        if feedback_url:
-            st.link_button("Leave detailed feedback", feedback_url)
-
-        if hasattr(st, "feedback"):
-            st.session_state.feedback_rating = st.feedback(
-                "thumbs",
-                key="feedback_rating_widget",
-            )
-
-        st.text_input(
-            "What was confusing or useful?",
-            key="feedback_note",
-            placeholder="Optional",
+    st.markdown("**Feedback**")
+    st.caption("Quick reaction here, detailed feedback through the form.")
+    if hasattr(st, "feedback"):
+        st.session_state.feedback_rating = st.feedback(
+            "thumbs",
+            key="feedback_rating_widget",
         )
 
-        if st.button("Submit Feedback"):
-            st.session_state.feedback_submitted = True
-
-        if st.session_state.feedback_submitted:
-            st.success("Thanks for the feedback.")
+    feedback_url = get_feedback_url()
+    if feedback_url:
+        st.link_button("Leave detailed feedback", feedback_url)
+    else:
+        st.caption("Detailed feedback form is not configured yet.")
