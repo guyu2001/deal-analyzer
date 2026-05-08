@@ -538,12 +538,14 @@ with analyze_tab:
                     min_value=0.0,
                     step=100.0,
                     key="property_tax_annual",
+                    help="Estimated yearly property tax bill.",
                 )
                 st.number_input(
                     "Insurance (Annual)",
                     min_value=0.0,
                     step=100.0,
                     key="insurance_annual",
+                    help="Estimated yearly property insurance cost.",
                 )
                 st.number_input(
                     "Maintenance %",
@@ -551,6 +553,7 @@ with analyze_tab:
                     max_value=100.0,
                     step=1.0,
                     key="maintenance_pct",
+                    help="Estimated share of rent set aside for repairs and upkeep.",
                 )
 
             with col3:
@@ -560,6 +563,7 @@ with analyze_tab:
                     max_value=100.0,
                     step=1.0,
                     key="vacancy_pct",
+                    help="Estimated share of rent lost when the property is empty.",
                 )
                 st.number_input(
                     "Property Management %",
@@ -567,6 +571,7 @@ with analyze_tab:
                     max_value=100.0,
                     step=1.0,
                     key="property_management_pct",
+                    help="Estimated share of rent paid to a property manager.",
                 )
                 st.number_input(
                     "HOA (Monthly)",
@@ -710,12 +715,24 @@ with analyze_tab:
         st.divider()
 
         support1, support2, support3 = st.columns(3)
-        support1.metric("Cash Flow", format_currency(metrics.monthly_cash_flow))
+        support1.metric(
+            "Cash Flow",
+            format_currency(metrics.monthly_cash_flow),
+            help="Estimated money left each month after mortgage and operating expenses.",
+        )
         support2.metric(
             "Cash-on-Cash Return",
             format_percent(metrics.cash_on_cash_return),
+            help="Annual cash flow divided by the cash you invested upfront.",
         )
-        support3.metric("DSCR", f"{metrics.dscr:.2f}")
+        support3.metric(
+            "DSCR",
+            f"{metrics.dscr:.2f}",
+            help=(
+                "Debt-service coverage ratio. Above 1.0 means rent income covers "
+                "debt payments; higher is safer."
+            ),
+        )
 
         st.caption(
             f"Grade {grade} - {grade_caption(grade)} | "
